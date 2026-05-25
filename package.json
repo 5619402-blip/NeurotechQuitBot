@@ -1,0 +1,30 @@
+{
+  "name": "neurotech-quit-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот для помощи в отказе от зависимостей — NeuroTech Quit",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "seed": "knex seed:run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1051.0",
+    "@aws-sdk/s3-request-presigner": "^3.1051.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "knex": "^3.1.0",
+    "node-cron": "^3.0.3",
+    "pg": "^8.11.0",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

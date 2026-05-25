@@ -1,0 +1,20 @@
+node_modules/
+.env
+*.log
+npm-debug.log*
+.DS_Store
+dist/
+coverage/
+*.sqlite
+*.sqlite3
+
+# Large media binaries (transfer via rsync/scp)
+media/*.mp4
+media/*.MOV
+media/*.mov
+
+# Claude session exports
+exports/
+
+# Runtime log
+nohup.out
