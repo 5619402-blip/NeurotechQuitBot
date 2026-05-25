@@ -1,19 +1,28 @@
 const { Markup } = require('telegraf');
 const config = require('../../config');
+const { getPlayerToken } = require('../../db/playerTokens');
+const { generatePresignedUrl } = require('../../storage/presignedUrl');
 
 const PLACEHOLDER_URL = 'https://player.example.com';
 
-function buildLaunchText(token) {
+async function buildLaunchUrl(token) {
   const baseUrl = config.playerBaseUrl;
-  const isPlaceholder = !baseUrl || baseUrl === PLACEHOLDER_URL;
-
-  if (isPlaceholder) {
-    return 'Плеер процедуры пока не подключён. Тестовый режим активен.';
+  if (baseUrl && baseUrl !== PLACEHOLDER_URL) {
+    return `${baseUrl}?token=${token}`;
   }
 
+  const row = await getPlayerToken(token);
+  if (!row?.storage_path) {
+    throw new Error('storage_path не найден для токена');
+  }
+  return generatePresignedUrl(row.storage_path);
+}
+
+function buildLaunchText(url) {
   return (
     'Процедура готова к запуску.\n\n' +
-    `Ссылка на плеер:\n${baseUrl}?token=${token}`
+    `Ссылка на процедуру:\n${url}\n\n` +
+    'Ссылка действительна ограниченное время. Откройте её и пройдите процедуру полностью.'
   );
 }
 
@@ -33,9 +42,19 @@ async function sendScreen(ctx, text, keyboard) {
 }
 
 async function showProcedureLaunch(ctx, { token, sessionId }) {
-  const text = buildLaunchText(token);
-  const keyboard = buildLaunchKeyboard(sessionId);
-  await sendScreen(ctx, text, keyboard);
+  let url;
+  try {
+    url = await buildLaunchUrl(token);
+  } catch (err) {
+    console.error('[procedureLaunch] ошибка генерации ссылки:', err.message);
+    await sendScreen(
+      ctx,
+      'Не удалось создать ссылку на процедуру. Попробуйте позже.',
+      buildLaunchKeyboard(sessionId)
+    );
+    return;
+  }
+  await sendScreen(ctx, buildLaunchText(url), buildLaunchKeyboard(sessionId));
 }
 
 module.exports = { showProcedureLaunch };
