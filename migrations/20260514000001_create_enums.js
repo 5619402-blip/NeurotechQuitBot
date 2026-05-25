@@ -1,7 +1,10 @@
 // Миграция 001 — все ENUM-типы из раздела 18.1 docs/TZ_v4.md
 // SQLite не поддерживает CREATE TYPE; колонки с specificType() хранятся как TEXT.
 exports.up = async (knex) => {
-  if (knex.client.config.client === 'better-sqlite3') return;
+  const client = knex.client.config.client;
+  if (client === 'better-sqlite3' || client === 'sqlite3') {
+    return Promise.resolve();
+  }
 
   await knex.schema.raw(`
     CREATE TYPE user_status_enum AS ENUM (
@@ -31,7 +34,10 @@ exports.up = async (knex) => {
 };
 
 exports.down = async (knex) => {
-  if (knex.client.config.client === 'better-sqlite3') return;
+  const client = knex.client.config.client;
+  if (client === 'better-sqlite3' || client === 'sqlite3') {
+    return Promise.resolve();
+  }
 
   await knex.schema.raw('DROP TYPE IF EXISTS review_type_enum CASCADE');
   await knex.schema.raw('DROP TYPE IF EXISTS diagnostic_status_enum CASCADE');
