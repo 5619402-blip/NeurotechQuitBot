@@ -1,6 +1,7 @@
 const path = require('path');
 const { Markup } = require('telegraf');
 const { setLastBotMessageId } = require('../../db/users');
+const { RULES_VIDEO_FILE_ID } = require('../../config/media');
 
 const RULES_VIDEO_TEXT =
   'Перед процедурой посмотрите короткие правила. Это важно для корректного прохождения.';
@@ -34,7 +35,9 @@ async function showRulesVideoWatch(ctx) {
     // сообщение уже удалено или недоступно
   }
 
-  const videoSource = process.env.RULES_VIDEO_FILE_ID || { source: RULES_VIDEO_PATH };
+  const useLocal = process.env.USE_LOCAL_MEDIA === 'true';
+  const videoSource = useLocal ? { source: RULES_VIDEO_PATH } : RULES_VIDEO_FILE_ID;
+  console.log(`[rulesVideo] source=${useLocal ? 'local_file' : 'telegram_file_id'}`);
 
   try {
     const msg = await ctx.replyWithVideo(

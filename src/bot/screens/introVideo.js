@@ -1,6 +1,7 @@
 const path = require('path');
 const { Markup } = require('telegraf');
 const { setLastBotMessageId } = require('../../db/users');
+const { INTRO_VIDEO_FILE_ID } = require('../../config/media');
 
 const INTRO_VIDEO_TEXT =
   'Посмотрите короткое объяснение, как формируется никотиновая зависимость и как работает NeuroTech Quit.';
@@ -35,7 +36,9 @@ async function showIntroVideoWatch(ctx) {
     // сообщение уже удалено или недоступно
   }
 
-  const videoSource = process.env.INTRO_VIDEO_FILE_ID || { source: INTRO_VIDEO_PATH };
+  const useLocal = process.env.USE_LOCAL_MEDIA === 'true';
+  const videoSource = useLocal ? { source: INTRO_VIDEO_PATH } : INTRO_VIDEO_FILE_ID;
+  console.log(`[introVideo] source=${useLocal ? 'local_file' : 'telegram_file_id'}`);
 
   try {
     const msg = await ctx.replyWithVideo(
