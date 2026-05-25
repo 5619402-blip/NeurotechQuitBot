@@ -34,15 +34,27 @@ async function showRulesVideoWatch(ctx) {
     // сообщение уже удалено или недоступно
   }
 
-  const msg = await ctx.replyWithVideo(
-    { source: RULES_VIDEO_PATH },
-    {
-      caption: RULES_VIDEO_CAPTION,
-      ...rulesVideoAfterWatchKeyboard,
-    }
-  );
+  const videoSource = process.env.RULES_VIDEO_FILE_ID || { source: RULES_VIDEO_PATH };
 
-  return msg;
+  try {
+    const msg = await ctx.replyWithVideo(
+      videoSource,
+      {
+        caption: RULES_VIDEO_CAPTION,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Перейти к подготовке', callback_data: 'rules_video:to_preparation' }],
+            [{ text: 'Назад', callback_data: 'rules_video:back' }],
+          ],
+        },
+      }
+    );
+    return msg;
+  } catch (err) {
+    console.error('[rulesVideo] replyWithVideo:', err.message);
+    await ctx.reply('Не удалось загрузить видео. Попробуйте ещё раз.').catch(() => {});
+    return null;
+  }
 }
 
 module.exports = { showRulesVideo, showRulesVideoWatch };

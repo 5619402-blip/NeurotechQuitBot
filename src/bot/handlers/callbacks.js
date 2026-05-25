@@ -97,6 +97,7 @@ module.exports = (bot) => {
 
   bot.action('intro_video:back', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showWelcome(ctx);
   });
 

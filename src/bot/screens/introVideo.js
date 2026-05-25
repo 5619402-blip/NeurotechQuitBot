@@ -35,16 +35,27 @@ async function showIntroVideoWatch(ctx) {
     // сообщение уже удалено или недоступно
   }
 
-  const msg = await ctx.replyWithVideo(
-    { source: INTRO_VIDEO_PATH },
-    {
-      caption: INTRO_VIDEO_CAPTION,
-      ...introVideoAfterWatchKeyboard,
-    }
-  );
+  const videoSource = process.env.INTRO_VIDEO_FILE_ID || { source: INTRO_VIDEO_PATH };
 
-  if (ctx.from?.id && msg?.message_id) {
-    setLastBotMessageId(ctx.from.id, msg.message_id).catch(() => {});
+  try {
+    const msg = await ctx.replyWithVideo(
+      videoSource,
+      {
+        caption: INTRO_VIDEO_CAPTION,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Пройти диагностику', callback_data: 'intro_video:diagnostic' }],
+            [{ text: 'Назад', callback_data: 'intro_video:back' }],
+          ],
+        },
+      }
+    );
+    if (ctx.from?.id && msg?.message_id) {
+      setLastBotMessageId(ctx.from.id, msg.message_id).catch(() => {});
+    }
+  } catch (err) {
+    console.error('[introVideo] replyWithVideo:', err.message);
+    await ctx.reply('Не удалось загрузить видео. Попробуйте ещё раз.').catch(() => {});
   }
 }
 
