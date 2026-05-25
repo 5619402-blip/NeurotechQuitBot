@@ -1,12 +1,19 @@
 const { Markup } = require('telegraf');
 const config = require('../../config');
 
+const PLACEHOLDER_URL = 'https://player.example.com';
+
 function buildLaunchText(token) {
-  const baseUrl = config.playerBaseUrl || 'https://player.example.com';
+  const baseUrl = config.playerBaseUrl;
+  const isPlaceholder = !baseUrl || baseUrl === PLACEHOLDER_URL;
+
+  if (isPlaceholder) {
+    return 'Плеер процедуры пока не подключён. Тестовый режим активен.';
+  }
+
   return (
     'Процедура готова к запуску.\n\n' +
-    `Ссылка на плеер:\n${baseUrl}?token=${token}\n\n` +
-    '(Тестовый режим — используйте кнопки ниже для симуляции)'
+    `Ссылка на плеер:\n${baseUrl}?token=${token}`
   );
 }
 
