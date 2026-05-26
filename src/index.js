@@ -13,8 +13,10 @@ const { bot } = require('./bot/bot');
 const config = require('./config');
 const { startCron } = require('./cron');
 const { startPlayerServer } = require('./player/server');
+const { startTunnel } = require('./tunnel/cloudflared');
 
 startPlayerServer();
+startTunnel().catch(err => console.error('[cloudflared] error:', err.message));
 
 bot.launch().then(() => {
   console.log('NeuroTech Quit Bot запущен');
