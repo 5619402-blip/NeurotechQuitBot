@@ -1,4 +1,14 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
+
+// TEMP DIAGNOSTIC — удалить после проверки env на Bothost
+console.log('[ENV KEYS]', Object.keys(process.env).filter(k =>
+  !k.includes('TOKEN') &&
+  !k.includes('KEY') &&
+  !k.includes('SECRET') &&
+  !k.includes('PASSWORD')
+).sort());
+// END TEMP DIAGNOSTIC
+
 const { bot } = require('./bot/bot');
 const config = require('./config');
 const { startCron } = require('./cron');
