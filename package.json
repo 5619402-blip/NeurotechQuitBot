@@ -9,7 +9,8 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
-    "reset:test-user": "node scripts/reset_test_user.js"
+    "reset:test-user": "node scripts/reset_test_user.js",
+    "check:cloudflared": "node scripts/check_cloudflared.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1051.0",
