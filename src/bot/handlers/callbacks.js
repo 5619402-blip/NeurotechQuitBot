@@ -27,7 +27,7 @@ const { getUserByTelegramId, updateUserStatus, updateUserAfterPayment, setActive
 const { processTestPayment } = require('../../db/payments');
 const { showMyAccess } = require('../screens/myAccess');
 const { showMainMenu } = require('../screens/mainMenu');
-const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress } = require('../../db/access');
+const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress, getNextProcedureType } = require('../../db/access');
 const { showPreparation, showAlphaUnavailable, showHelperText } = require('../screens/preparation');
 const { showRulesVideo, showRulesVideoWatch } = require('../screens/rulesVideo');
 const { showPlayerWarning } = require('../screens/playerWarning');
@@ -436,7 +436,7 @@ module.exports = (bot) => {
     }
 
     const step = progress?.current_step_number ?? 0;
-    const nextType = step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+    const nextType = getNextProcedureType(step);
     const isFirstProcedure = step === 0;
 
     if (user.access_type === 'full_access') {
@@ -549,7 +549,7 @@ module.exports = (bot) => {
     if (!ar) return showMyAccess(ctx, user);
 
     const step = progress?.current_step_number ?? 0;
-    const nextType = step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+    const nextType = getNextProcedureType(step);
     const isFirstProcedure = step === 0;
 
     if (user.access_type === 'full_access') {
@@ -745,7 +745,7 @@ module.exports = (bot) => {
     if (!ar) return showMyAccess(ctx, user);
 
     const step = progress?.current_step_number ?? 0;
-    const procedureType = progress?.next_procedure_type ?? (step % 2 === 0 ? 'anti_tobacco' : 'quick_lever');
+    const procedureType = progress?.next_procedure_type ?? getNextProcedureType(step);
     const isFirstProcedure = step === 0;
     await showPreparation(ctx, { isFirstProcedure, procedureType });
   });
@@ -893,7 +893,7 @@ module.exports = (bot) => {
       if (session) {
         const procedure = await getProcedureById(session.procedure_id);
         if (procedure && procedure.procedure_type !== 'alpha') {
-          const nextType = (progress?.current_step_number ?? 0) % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+          const nextType = getNextProcedureType(progress?.current_step_number ?? 0);
           const nextProcedure = await getProcedureByType(nextType);
           if (nextProcedure) await createReminder(user.id, nextProcedure.id, sessionId);
         }
@@ -912,7 +912,7 @@ module.exports = (bot) => {
 
       if (!ar) return showMyAccess(ctx, user);
       const step = progress?.current_step_number ?? 0;
-      const nextProcedureType = step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+      const nextProcedureType = getNextProcedureType(step);
       if (user.access_type === 'full_access') {
         return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
       }
@@ -1015,9 +1015,7 @@ module.exports = (bot) => {
     if (!ar) return showTariff(ctx, user);
 
     const procedure = reminder.procedure_id ? await getProcedureById(reminder.procedure_id) : null;
-    const procedureType = procedure?.procedure_type ?? (
-      (progress?.current_step_number ?? 0) % 2 === 0 ? 'anti_tobacco' : 'quick_lever'
-    );
+    const procedureType = procedure?.procedure_type ?? getNextProcedureType(progress?.current_step_number ?? 0);
 
     const hasAccess =
       user.access_type === 'full_access' ||
@@ -1154,7 +1152,7 @@ module.exports = (bot) => {
       const [ar, progress] = await Promise.all([getAccessRights(user.id), getProtocolProgress(user.id)]);
       if (!ar) return showMyAccess(ctx, user);
       const step = progress?.current_step_number ?? 0;
-      const nextProcedureType = step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+      const nextProcedureType = getNextProcedureType(step);
       if (user.access_type === 'full_access' || ar.paid_main_procedures_count > ar.used_main_procedures_count) {
         return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
       }
@@ -1309,7 +1307,7 @@ module.exports = (bot) => {
     ]);
     if (!ar) return showTariff(ctx, user);
     const step = progress?.current_step_number ?? 0;
-    const nextProcedureType = step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+    const nextProcedureType = getNextProcedureType(step);
     if (user.access_type === 'full_access' || ar.paid_main_procedures_count > ar.used_main_procedures_count) {
       return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
     }

@@ -40,10 +40,17 @@ async function incrementUsedAlpha(userId) {
   }
 }
 
+// Порядок протокола: шаг 0 — всегда anti_tobacco, далее чередование
+// anti_tobacco → quick_lever → anti_tobacco → quick_lever → ...
+function getNextProcedureType(step) {
+  if (step === 0) return 'anti_tobacco';
+  return step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+}
+
 async function upsertProtocolProgress(userId, completedType, currentStepNumber) {
   try {
     const newStep = currentStepNumber + 1;
-    const newNextType = newStep % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+    const newNextType = getNextProcedureType(newStep);
     await db('protocol_progress')
       .insert({
         user_id: userId,
@@ -70,4 +77,5 @@ module.exports = {
   incrementUsedMain,
   incrementUsedAlpha,
   upsertProtocolProgress,
+  getNextProcedureType,
 };
