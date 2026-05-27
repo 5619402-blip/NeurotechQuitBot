@@ -122,6 +122,12 @@ module.exports = (bot) => {
     await showWelcome(ctx);
   });
 
+  bot.action(/^reviews:show:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const index = parseInt(ctx.callbackQuery.data.replace('reviews:show:', ''), 10);
+    await showReviews(ctx, isNaN(index) ? 0 : index);
+  });
+
   // ─── Диагностика: навигация Назад ───────────────────────────────────────
 
   bot.action(/^diag:nav_/, async (ctx) => {
