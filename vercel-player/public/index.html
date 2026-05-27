@@ -38,18 +38,15 @@
       letter-spacing: 0.02em;
     }
 
+    /* mux-player используется только как аудио-движок — визуально скрыт */
     mux-player {
-      width: 100%;
-      border-radius: 14px;
+      position: absolute;
+      width: 0;
+      height: 0;
       overflow: hidden;
-      background: #1a1a1a;
-      display: block;
+      opacity: 0;
+      pointer-events: none;
     }
-
-    /* hide all built-in controls */
-    mux-player::part(controls)       { display: none !important; }
-    mux-player::part(center-controls){ display: none !important; }
-    mux-player::part(bottom-controls){ display: none !important; }
 
     .progress-wrap {
       margin: 18px 0 6px;
