@@ -1,5 +1,11 @@
 const db = require('./connection');
 
+function parseAnswersJson(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'string') return JSON.parse(raw);
+  return raw;
+}
+
 async function upsertPostProcedureAnswer(userId, sessionId, key, value) {
   try {
     const existing = await db('post_procedure_answers')
@@ -7,12 +13,10 @@ async function upsertPostProcedureAnswer(userId, sessionId, key, value) {
       .first();
 
     if (existing) {
-      await db.raw(
-        `UPDATE post_procedure_answers
-         SET answers_json = COALESCE(answers_json, '{}'::jsonb) || ?::jsonb
-         WHERE user_id = ? AND procedure_session_id = ?`,
-        [JSON.stringify({ [key]: value }), userId, sessionId]
-      );
+      const prev = parseAnswersJson(existing.answers_json);
+      await db('post_procedure_answers')
+        .where({ user_id: userId, procedure_session_id: sessionId })
+        .update({ answers_json: JSON.stringify({ ...prev, [key]: value }) });
     } else {
       await db('post_procedure_answers').insert({
         user_id: userId,
@@ -21,7 +25,7 @@ async function upsertPostProcedureAnswer(userId, sessionId, key, value) {
       });
     }
   } catch (err) {
-    console.error('[db] upsertPostProcedureAnswer:', err.message);
+    console.error('[db] savePostProcedureAnswer failed (userId=%s, sessionId=%s, key=%s):', userId, sessionId, key, err.message);
   }
 }
 
@@ -30,7 +34,7 @@ async function getPostProcedureAnswers(userId, sessionId) {
     const row = await db('post_procedure_answers')
       .where({ user_id: userId, procedure_session_id: sessionId })
       .first();
-    return row?.answers_json ?? {};
+    return parseAnswersJson(row?.answers_json);
   } catch (err) {
     console.error('[db] getPostProcedureAnswers:', err.message);
     return {};
