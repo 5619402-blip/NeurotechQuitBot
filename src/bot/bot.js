@@ -18,6 +18,16 @@ bot.use(async (ctx, next) => {
     }
     return msg;
   };
+
+  const originalEdit = ctx.editMessageText.bind(ctx);
+  ctx.editMessageText = async (...args) => {
+    const msg = await originalEdit(...args);
+    if (ctx.from?.id && msg?.message_id) {
+      setLastBotMessageId(ctx.from.id, msg.message_id).catch(() => {});
+    }
+    return msg;
+  };
+
   return next();
 });
 
