@@ -45,31 +45,46 @@ async function main() {
     console.log(`  ${f} (${sizeMb} МБ)`);
   }
 
-  const bot = new Telegraf(token);
-  const results = [];
-
-  for (const filename of files) {
-    const filePath = path.join(folderPath, filename);
-    console.log(`\nЗагружаем ${filename}...`);
-    const msg = await bot.telegram.sendVideo(adminId, { source: filePath });
-    const telegram_file_id = msg.video.file_id;
-    const title = path.basename(filename, path.extname(filename));
-    console.log(`${filename} → ${telegram_file_id}`);
-    results.push({ filename, telegram_file_id, title });
-  }
-
   const tmpDir = path.join(__dirname, '../tmp');
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
   }
-
   const outPath = path.join(tmpDir, 'reviews-file-ids.json');
-  fs.writeFileSync(outPath, JSON.stringify(results, null, 2));
+
+  const bot = new Telegraf(token);
+  const uploaded = [];
+  const errors = [];
+
+  function saveProgress() {
+    fs.writeFileSync(outPath, JSON.stringify({ uploaded, errors }, null, 2));
+  }
+
+  for (const filename of files) {
+    const filePath = path.join(folderPath, filename);
+    console.log(`\nЗагружаем ${filename}...`);
+    try {
+      const msg = await bot.telegram.sendVideo(adminId, { source: filePath });
+      const telegram_file_id = msg.video.file_id;
+      const title = path.basename(filename, path.extname(filename));
+      console.log(`${filename} → ${telegram_file_id}`);
+      uploaded.push({ filename, telegram_file_id, title });
+    } catch (err) {
+      console.error(`Ошибка при загрузке ${filename}: ${err.message}`);
+      errors.push({ filename, error: err.message });
+    }
+    saveProgress();
+  }
 
   console.log(`\nРезультат сохранён: ${outPath}`);
   console.log('\n--- Итог ---');
-  for (const r of results) {
+  for (const r of uploaded) {
     console.log(`${r.filename} → ${r.telegram_file_id}`);
+  }
+  if (errors.length) {
+    console.log('\n--- Ошибки ---');
+    for (const e of errors) {
+      console.log(`${e.filename}: ${e.error}`);
+    }
   }
   console.log('------------');
 }
