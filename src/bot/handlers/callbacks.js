@@ -67,6 +67,7 @@ module.exports = (bot) => {
   // welcome:reviews — раздел 5.3
   bot.action('welcome:reviews', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showReviews(ctx);
   });
 
@@ -91,6 +92,7 @@ module.exports = (bot) => {
 
   bot.action('intro_video:reviews', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showReviews(ctx);
   });
 
@@ -114,11 +116,13 @@ module.exports = (bot) => {
 
   bot.action('reviews:diagnostic', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showDiagQ_adult(ctx);
   });
 
   bot.action('reviews:back', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showWelcome(ctx);
   });
 
@@ -263,6 +267,7 @@ module.exports = (bot) => {
 
   bot.action('low_readiness:reviews', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showReviews(ctx);
   });
 
@@ -285,6 +290,7 @@ module.exports = (bot) => {
 
   bot.action('not_sure:reviews', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showReviews(ctx);
   });
 
@@ -570,12 +576,14 @@ module.exports = (bot) => {
 
   bot.action('rules_video:to_access', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     await showMyAccess(ctx, user);
   });
 
   bot.action('rules_video:back', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     await showMyAccess(ctx, user);
   });
@@ -769,6 +777,7 @@ module.exports = (bot) => {
 
   bot.action('main_menu:reviews', async (ctx) => {
     await ctx.answerCbQuery();
+    try { await ctx.deleteMessage(); } catch {}
     await showReviews(ctx);
   });
 
