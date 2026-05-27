@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../src/db/connection');
 
-const JSON_PATH = path.join(__dirname, '../data/reviews/reviews-file-ids.json');
+const JSON_PATH = path.join(process.cwd(), 'reviews', 'reviews-file-ids.json');
 
 async function main() {
   if (!fs.existsSync(JSON_PATH)) {
