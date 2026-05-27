@@ -34,7 +34,6 @@ const { showPlayerWarning } = require('../screens/playerWarning');
 const { showProcedureInterrupted } = require('../screens/procedureInterrupted');
 const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
-const { createPlayerToken } = require('../../db/playerTokens');
 const { showPostProcedure } = require('../screens/postProcedure');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
@@ -631,19 +630,9 @@ module.exports = (bot) => {
       return;
     }
 
-    const tokenRow = await createPlayerToken(user.id, session.id);
-    if (!tokenRow) {
-      await ctx.editMessageText(
-        'Не удалось создать токен доступа. Попробуйте позже или обратитесь в поддержку.'
-      ).catch(() =>
-        ctx.reply('Не удалось создать токен доступа. Попробуйте позже или обратитесь в поддержку.')
-      );
-      return;
-    }
-
     await setActiveUnfinishedProcedure(user.id, true);
     await updateUserStatus(ctx.from.id, 'procedure_in_progress');
-    await showProcedureLaunch(ctx, { token: tokenRow.token, sessionId: session.id });
+    await showProcedureLaunch(ctx, { procedureType, sessionId: session.id });
   });
 
   bot.action(/^player_warning:back:/, async (ctx) => {

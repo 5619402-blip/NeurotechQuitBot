@@ -1,18 +1,34 @@
+function readEnv(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 module.exports = {
-  botToken: process.env.BOT_TOKEN,
-  databaseUrl: process.env.DATABASE_URL,
-  adminTelegramIds: (process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(id => id.trim()).filter(Boolean),
-  playerBaseUrl: process.env.PLAYER_BASE_URL,
-  cronEnabled: process.env.CRON_ENABLED === 'true',
+  botToken: readEnv('BOT_TOKEN'),
+  databaseUrl: readEnv('DATABASE_URL'),
+  adminTelegramIds: (readEnv('ADMIN_TELEGRAM_IDS') || '').split(',').map(id => id.trim()).filter(Boolean),
+  playerBaseUrl: readEnv('PLAYER_BASE_URL'),
+  cronEnabled: readEnv('CRON_ENABLED') === 'true',
   storage: {
-    provider: process.env.STORAGE_PROVIDER,
-    bucket: process.env.STORAGE_BUCKET,
-    accessKey: process.env.STORAGE_ACCESS_KEY,
-    secretKey: process.env.STORAGE_SECRET_KEY,
+    provider: readEnv('STORAGE_PROVIDER'),
+    bucket: readEnv('STORAGE_BUCKET', 'YC_BUCKET'),
+    accessKey: readEnv('STORAGE_ACCESS_KEY', 'YC_ACCESS_KEY'),
+    secretKey: readEnv('STORAGE_SECRET_KEY', 'YC_SECRET_KEY'),
+  },
+  mux: {
+    signingKeyId: readEnv('MUX_SIGNING_KEY_ID'),
+    signingPrivateKey: readEnv('MUX_SIGNING_PRIVATE_KEY'),
+    antiTobaccoPlaybackId: readEnv('MUX_ANTI_TOBACCO_PLAYBACK_ID'),
   },
   payment: {
-    provider: process.env.PAYMENT_PROVIDER,
-    testMode: process.env.PAYMENT_TEST_MODE === 'true',
+    provider: readEnv('PAYMENT_PROVIDER'),
+    testMode: readEnv('PAYMENT_TEST_MODE') === 'true',
   },
-  webhookBaseUrl: process.env.WEBHOOK_BASE_URL,
+  webhookBaseUrl: readEnv('WEBHOOK_BASE_URL'),
 };
