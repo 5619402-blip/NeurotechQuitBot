@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>NeuroTech Quit</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      color: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+    }
+
+    .screen { width: 100%; max-width: 440px; text-align: center; }
+    .hidden { display: none !important; }
+
+    /* ── Error ── */
+    #error-screen h2 {
+      font-size: 1.15rem;
+      color: #ff6b6b;
+      margin-bottom: 10px;
+    }
+    #error-screen p { color: #888; font-size: 0.95rem; }
+
+    /* ── Player ── */
+    .procedure-title {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 18px;
+      letter-spacing: 0.02em;
+    }
+
+    mux-player {
+      width: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #1a1a1a;
+      display: block;
+    }
+
+    /* hide all built-in controls */
+    mux-player::part(controls)       { display: none !important; }
+    mux-player::part(center-controls){ display: none !important; }
+    mux-player::part(bottom-controls){ display: none !important; }
+
+    .progress-wrap {
+      margin: 18px 0 6px;
+      width: 100%;
+      height: 4px;
+      background: #2a2a2a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #4a9eff;
+      border-radius: 2px;
+      transition: width 0.6s linear;
+    }
+
+    .time {
+      color: #666;
+      font-size: 0.8rem;
+      margin-bottom: 22px;
+    }
+
+    .controls { display: flex; flex-direction: column; gap: 12px; }
+
+    .btn {
+      width: 100%;
+      padding: 17px;
+      border: none;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn-primary  { background: #4a9eff; color: #fff; }
+    .btn-secondary{ background: #222;    color: #ddd; }
+
+    /* ── Completed ── */
+    #completed-screen h2 {
+      font-size: 1.3rem;
+      color: #4caf50;
+      margin-bottom: 10px;
+    }
+    #completed-screen p {
+      color: #888;
+      font-size: 0.95rem;
+      margin-bottom: 26px;
+    }
+    .btn-tg {
+      display: block;
+      width: 100%;
+      padding: 17px;
+      background: #2196f3;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Error -->
+  <div id="error-screen" class="screen hidden">
+    <h2>Процедура временно недоступна</h2>
+    <p>Вернитесь в бот и попробуйте снова.</p>
+  </div>
+
+  <!-- Player -->
+  <div id="player-screen" class="screen hidden">
+    <p class="procedure-title" id="proc-title"></p>
+
+    <mux-player
+      id="player"
+      audio
+      preload="auto"
+    ></mux-player>
+
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="time" id="time-display">0:00 / 0:00</div>
+
+    <div class="controls">
+      <button class="btn btn-primary"   id="btn-start">Начать процедуру</button>
+      <button class="btn btn-secondary" id="btn-exit">Экстренно выйти</button>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div id="completed-screen" class="screen hidden">
+    <h2>Процедура завершена</h2>
+    <p>Вернитесь в бот, чтобы продолжить.</p>
+    <a class="btn-tg" href="https://t.me/NeuroTechQuitBot">Вернуться в бот</a>
+  </div>
+
+  <script>
+    (function () {
+      var NAMES = {
+        anti_tobacco: 'Анти-табак',
+        quick_lever:  'Быстрый рычаг',
+        alpha:        'Альфа-процедура',
+      };
+
+      function show(id) {
+        ['error-screen', 'player-screen', 'completed-screen'].forEach(function (s) {
+          document.getElementById(s).classList.add('hidden');
+        });
+        document.getElementById(id).classList.remove('hidden');
+      }
+
+      function fmt(sec) {
+        if (!isFinite(sec) || sec < 0) return '0:00';
+        var m = Math.floor(sec / 60);
+        var s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+      }
+
+      var params     = new URLSearchParams(window.location.search);
+      var procedure  = params.get('procedure') || '';
+      var playbackId = params.get('playbackId') || '';
+      var token      = params.get('token') || '';
+
+      if (!playbackId || !token) {
+        show('error-screen');
+        return;
+      }
+
+      show('player-screen');
+
+      document.getElementById('proc-title').textContent =
+        NAMES[procedure] || procedure;
+
+      var player   = document.getElementById('player');
+      var fill     = document.getElementById('progress-fill');
+      var timeEl   = document.getElementById('time-display');
+      var btnStart = document.getElementById('btn-start');
+      var btnExit  = document.getElementById('btn-exit');
+
+      player.setAttribute('playback-id', playbackId);
+      player.setAttribute('playback-token', token);
+
+      var maxReached = 0;
+
+      /* ── Anti-seek: запрет перемотки вперёд ── */
+      player.addEventListener('seeking', function () {
+        if (player.currentTime > maxReached + 1) {
+          player.currentTime = maxReached;
+        }
+      });
+
+      /* ── Обновление прогресса ── */
+      player.addEventListener('timeupdate', function () {
+        var cur = player.currentTime || 0;
+        if (cur > maxReached) maxReached = cur;
+
+        var dur = player.duration;
+        if (dur && isFinite(dur) && dur > 0) {
+          fill.style.width = (cur / dur * 100) + '%';
+          timeEl.textContent = fmt(cur) + ' / ' + fmt(dur);
+        }
+      });
+
+      /* ── Запрет изменения скорости ── */
+      player.addEventListener('ratechange', function () {
+        if (player.playbackRate !== 1) player.playbackRate = 1;
+      });
+
+      /* ── Завершение ── */
+      player.addEventListener('ended', function () {
+        show('completed-screen');
+      });
+
+      /* ── Кнопки управления ── */
+      btnStart.addEventListener('click', function () {
+        player.play();
+        btnStart.classList.add('hidden');
+      });
+
+      btnExit.addEventListener('click', function () {
+        try { player.pause(); } catch (e) {}
+        window.location.href = 'https://t.me/NeuroTechQuitBot';
+      });
+    })();
+  </script>
+
+</body>
+</html>
