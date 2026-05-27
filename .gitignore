@@ -16,5 +16,8 @@ media/*.mov
 # Claude session exports
 exports/
 
+# Temporary upload results
+tmp/
+
 # Runtime log
 nohup.out
