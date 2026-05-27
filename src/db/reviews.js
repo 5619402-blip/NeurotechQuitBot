@@ -4,7 +4,7 @@ async function getActiveReviews() {
   return db('reviews')
     .where({ is_active: true })
     .orderBy('sort_order', 'asc')
-    .select('title', 'client_name', 'description', 'source');
+    .select('id', 'title', 'client_name', 'description', 'source', 'file_url', 'telegram_file_id', 'sort_order', 'is_active');
 }
 
 module.exports = { getActiveReviews };
