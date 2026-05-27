@@ -5,16 +5,29 @@ const fs = require('fs');
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v'];
 
+function readExistingJson(outPath) {
+  if (!fs.existsSync(outPath)) return { uploaded: [], errors: [] };
+  try {
+    const raw = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    return {
+      uploaded: Array.isArray(raw.uploaded) ? raw.uploaded : [],
+      errors: Array.isArray(raw.errors) ? raw.errors : [],
+    };
+  } catch {
+    return { uploaded: [], errors: [] };
+  }
+}
+
 async function main() {
-  const folderArg = process.argv[2];
-  if (!folderArg) {
-    console.error('Использование: node scripts/upload_reviews_to_telegram.js <путь-к-папке>');
+  const inputArg = process.argv[2];
+  if (!inputArg) {
+    console.error('Использование: node scripts/upload_reviews_to_telegram.js <путь-к-файлу-или-папке>');
     process.exit(1);
   }
 
-  const folderPath = path.resolve(folderArg);
-  if (!fs.existsSync(folderPath)) {
-    console.error(`Папка не найдена: ${folderPath}`);
+  const inputPath = path.resolve(inputArg);
+  if (!fs.existsSync(inputPath)) {
+    console.error(`Путь не найден: ${inputPath}`);
     process.exit(1);
   }
 
@@ -30,19 +43,39 @@ async function main() {
     process.exit(1);
   }
 
-  const files = fs.readdirSync(folderPath)
-    .filter((f) => VIDEO_EXTENSIONS.includes(path.extname(f).toLowerCase()))
-    .sort();
+  const stat = fs.statSync(inputPath);
+  let filesToUpload;
+  let appendMode;
 
-  if (!files.length) {
-    console.error(`В папке нет видеофайлов (.mp4, .mov, .m4v): ${folderPath}`);
-    process.exit(1);
-  }
+  if (stat.isFile()) {
+    const ext = path.extname(inputPath).toLowerCase();
+    if (!VIDEO_EXTENSIONS.includes(ext)) {
+      console.error(`Неподдерживаемый формат: ${ext}. Допустимы: .mp4, .mov, .m4v`);
+      process.exit(1);
+    }
+    const filename = path.basename(inputPath);
+    const sizeMb = (stat.size / 1024 / 1024).toFixed(1);
+    console.log(`Файл: ${filename} (${sizeMb} МБ)`);
+    filesToUpload = [{ filename, filePath: inputPath }];
+    appendMode = true;
+  } else {
+    const files = fs.readdirSync(inputPath)
+      .filter((f) => VIDEO_EXTENSIONS.includes(path.extname(f).toLowerCase()))
+      .sort();
 
-  console.log(`Найдено видеофайлов: ${files.length}`);
-  for (const f of files) {
-    const sizeMb = (fs.statSync(path.join(folderPath, f)).size / 1024 / 1024).toFixed(1);
-    console.log(`  ${f} (${sizeMb} МБ)`);
+    if (!files.length) {
+      console.error(`В папке нет видеофайлов (.mp4, .mov, .m4v): ${inputPath}`);
+      process.exit(1);
+    }
+
+    console.log(`Найдено видеофайлов: ${files.length}`);
+    for (const f of files) {
+      const sizeMb = (fs.statSync(path.join(inputPath, f)).size / 1024 / 1024).toFixed(1);
+      console.log(`  ${f} (${sizeMb} МБ)`);
+    }
+
+    filesToUpload = files.map((f) => ({ filename: f, filePath: path.join(inputPath, f) }));
+    appendMode = false;
   }
 
   const tmpDir = path.join(__dirname, '../tmp');
@@ -51,16 +84,17 @@ async function main() {
   }
   const outPath = path.join(tmpDir, 'reviews-file-ids.json');
 
+  const base = appendMode ? readExistingJson(outPath) : { uploaded: [], errors: [] };
+  const uploaded = base.uploaded;
+  const errors = base.errors;
+
   const bot = new Telegraf(token);
-  const uploaded = [];
-  const errors = [];
 
   function saveProgress() {
     fs.writeFileSync(outPath, JSON.stringify({ uploaded, errors }, null, 2));
   }
 
-  for (const filename of files) {
-    const filePath = path.join(folderPath, filename);
+  for (const { filename, filePath } of filesToUpload) {
     console.log(`\nЗагружаем ${filename}...`);
     try {
       const msg = await bot.telegram.sendVideo(adminId, { source: filePath });
