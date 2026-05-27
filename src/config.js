@@ -25,6 +25,8 @@ module.exports = {
     signingKeyId: readEnv('MUX_SIGNING_KEY_ID'),
     signingPrivateKey: readEnv('MUX_SIGNING_PRIVATE_KEY'),
     antiTobaccoPlaybackId: readEnv('MUX_ANTI_TOBACCO_PLAYBACK_ID'),
+    quickLeverPlaybackId: readEnv('MUX_QUICK_LEVER_PLAYBACK_ID'),
+    alphaPlaybackId: readEnv('MUX_ALPHA_PLAYBACK_ID'),
   },
   payment: {
     provider: readEnv('PAYMENT_PROVIDER'),

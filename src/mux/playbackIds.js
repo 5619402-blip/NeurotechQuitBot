@@ -3,8 +3,8 @@ const config = require('../config');
 function getPlaybackIdMap() {
   return {
     anti_tobacco: config.mux.antiTobaccoPlaybackId,
-    // quick_lever: config.mux.quickLeverPlaybackId,   // добавить когда появится asset в Mux
-    // alpha:       config.mux.alphaPlaybackId,        // добавить когда появится asset в Mux
+    quick_lever:  config.mux.quickLeverPlaybackId,
+    alpha:        config.mux.alphaPlaybackId,
   };
 }
 
