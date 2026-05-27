@@ -2,8 +2,29 @@ require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v'];
+
+function getVideoMeta(filePath) {
+  try {
+    const out = execSync(
+      `ffprobe -v quiet -print_format json -show_streams -show_format "${filePath}"`,
+      { timeout: 15000 }
+    ).toString();
+    const data = JSON.parse(out);
+    const videoStream = (data.streams || []).find((s) => s.codec_type === 'video');
+    const duration = Math.round(parseFloat(data.format?.duration ?? '0'));
+    return {
+      width: videoStream?.width ?? undefined,
+      height: videoStream?.height ?? undefined,
+      duration: duration || undefined,
+    };
+  } catch {
+    console.warn('  ffprobe недоступен или ошибка — отправляем без размеров');
+    return {};
+  }
+}
 
 function readExistingJson(outPath) {
   if (!fs.existsSync(outPath)) return { uploaded: [], errors: [] };
@@ -97,7 +118,16 @@ async function main() {
   for (const { filename, filePath } of filesToUpload) {
     console.log(`\nЗагружаем ${filename}...`);
     try {
-      const msg = await bot.telegram.sendVideo(adminId, { source: filePath });
+      const meta = getVideoMeta(filePath);
+      if (meta.width && meta.height) {
+        console.log(`  ${meta.width}×${meta.height}, ${meta.duration ?? '?'}с`);
+      }
+      const msg = await bot.telegram.sendVideo(adminId, { source: filePath }, {
+        width: meta.width,
+        height: meta.height,
+        duration: meta.duration,
+        supports_streaming: true,
+      });
       const telegram_file_id = msg.video.file_id;
       const title = path.basename(filename, path.extname(filename));
       console.log(`${filename} → ${telegram_file_id}`);
