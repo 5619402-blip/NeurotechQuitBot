@@ -8,7 +8,8 @@ const { generateMuxPlaybackToken } = require('../mux/token');
 
 const PRESIGN_TTL = 600; // 10 минут
 const GRACE_MS = 10_000; // grace window для повторного запроса одного токена
-const redirectCache = new Map(); // token → { url, expiresAt }
+const redirectCache   = new Map(); // token → { url, expiresAt }
+const pendingRequests = new Map(); // token → Promise<string> (in-flight)
 
 const LINK_UNAVAILABLE_HTML = `<!DOCTYPE html>
 <html lang="ru">
@@ -198,55 +199,96 @@ async function launchHandler(req, res) {
     return res.status(400).send(LINK_UNAVAILABLE_HTML);
   }
 
-  // Grace window: повторный запрос того же токена в течение GRACE_MS → тот же redirect
+  // 1. Grace window: повторный запрос уже завершённого токена → тот же redirect
   const cached = redirectCache.get(token);
-  if (cached && cached.expiresAt > Date.now()) {
+  const diffMs = cached ? cached.expiresAt - Date.now() : null;
+  console.log('[launch] cache check:', token.slice(0, 8),
+    '| size=' + redirectCache.size,
+    '| hit=' + !!cached,
+    cached ? '| diffMs=' + diffMs : '| miss'
+  );
+  if (cached && diffMs > 0) {
     console.log('[launch] grace redirect:', token.slice(0, 8));
     return res.redirect(302, cached.url);
   }
 
-  // 1. Получить данные токена (до пометки использованным — нужен procedure_type)
-  const row = await getTokenForLaunch(token);
-
-  if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
-    console.log('[launch] blocked:', token.slice(0, 8));
-    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  // 2. In-flight: первый запрос ещё обрабатывается → ждём его результат
+  const inflight = pendingRequests.get(token);
+  if (inflight) {
+    console.log('[launch] await inflight:', token.slice(0, 8));
+    try {
+      const url = await inflight;
+      return res.redirect(302, url);
+    } catch {
+      console.log('[launch] inflight blocked:', token.slice(0, 8));
+      return res.status(403).send(LINK_UNAVAILABLE_HTML);
+    }
   }
 
-  if (row.session_status !== 'started') {
-    console.log('[launch] blocked:', token.slice(0, 8));
-    return res.status(403).send(LINK_UNAVAILABLE_HTML);
-  }
+  // 3. Первый запрос — зарегистрировать как in-flight до async операций
+  let settle;
+  const processing = new Promise((resolve, reject) => { settle = { resolve, reject }; });
+  pendingRequests.set(token, processing);
 
-  // 2. Атомарно пометить токен использованным
-  const claimed = await markTokenUsed(token);
-  if (!claimed) {
-    console.log('[launch] race blocked:', token.slice(0, 8));
-    return res.status(403).send(LINK_UNAVAILABLE_HTML);
-  }
-
-  // 3. Сгенерировать Mux JWT и сделать редирект на Vercel
-  let playbackId;
-  let muxToken;
   try {
-    playbackId = getMuxPlaybackId(row.procedure_type);
-    muxToken = generateMuxPlaybackToken(playbackId);
+    const row = await getTokenForLaunch(token);
+
+    if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
+      console.log('[launch] blocked:', token.slice(0, 8));
+      settle.reject(new Error('blocked'));
+      pendingRequests.delete(token);
+      return res.status(403).send(LINK_UNAVAILABLE_HTML);
+    }
+
+    if (row.session_status !== 'started') {
+      console.log('[launch] blocked:', token.slice(0, 8));
+      settle.reject(new Error('blocked'));
+      pendingRequests.delete(token);
+      return res.status(403).send(LINK_UNAVAILABLE_HTML);
+    }
+
+    const claimed = await markTokenUsed(token);
+    if (!claimed) {
+      console.log('[launch] race blocked:', token.slice(0, 8));
+      settle.reject(new Error('race blocked'));
+      pendingRequests.delete(token);
+      return res.status(403).send(LINK_UNAVAILABLE_HTML);
+    }
+
+    let playbackId;
+    let muxToken;
+    try {
+      playbackId = getMuxPlaybackId(row.procedure_type);
+      muxToken = generateMuxPlaybackToken(playbackId);
+    } catch (err) {
+      console.error('[launch] Mux token error:', err.message);
+      settle.reject(err);
+      pendingRequests.delete(token);
+      return res.status(500).send(LINK_UNAVAILABLE_HTML);
+    }
+
+    const vercelBaseRaw = config.vercelPlayerBaseUrl;
+    if (!vercelBaseRaw) {
+      console.error('[launch] VERCEL_PLAYER_BASE_URL не задан');
+      settle.reject(new Error('no vercel url'));
+      pendingRequests.delete(token);
+      return res.status(500).send(LINK_UNAVAILABLE_HTML);
+    }
+    const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
+
+    const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+    redirectCache.set(token, { url: redirectUrl, expiresAt: Date.now() + GRACE_MS });
+    settle.resolve(redirectUrl);
+    pendingRequests.delete(token);
+    console.log('[launch] redirect ok:', token.slice(0, 8));
+    return res.redirect(302, redirectUrl);
+
   } catch (err) {
-    console.error('[launch] Mux token error:', err.message);
+    console.error('[launch] unexpected error:', err.message);
+    settle.reject(err);
+    pendingRequests.delete(token);
     return res.status(500).send(LINK_UNAVAILABLE_HTML);
   }
-
-  const vercelBaseRaw = config.vercelPlayerBaseUrl;
-  if (!vercelBaseRaw) {
-    console.error('[launch] VERCEL_PLAYER_BASE_URL не задан');
-    return res.status(500).send(LINK_UNAVAILABLE_HTML);
-  }
-  const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
-
-  const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
-  redirectCache.set(token, { url: redirectUrl, expiresAt: Date.now() + GRACE_MS });
-  console.log('[launch] redirect ok:', token.slice(0, 8));
-  return res.redirect(302, redirectUrl);
 }
 
 async function playerHandler(req, res) {
