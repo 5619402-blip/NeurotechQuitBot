@@ -2,9 +2,41 @@ const express = require('express');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const config = require('../config');
-const { getPlayerToken } = require('../db/playerTokens');
+const { getPlayerToken, getTokenForLaunch, markTokenUsed } = require('../db/playerTokens');
+const { getMuxPlaybackId } = require('../mux/playbackIds');
+const { generateMuxPlaybackToken } = require('../mux/token');
 
 const PRESIGN_TTL = 600; // 10 минут
+
+const LINK_UNAVAILABLE_HTML = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NeuroTech Quit</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    p { font-size: 0.9rem; color: #888; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h1>NeuroTech Quit</h1>
+  <p>Ссылка недоступна.<br>Вернитесь в Telegram-бот, чтобы продолжить.</p>
+</body>
+</html>`;
 
 function buildS3Client() {
   return new S3Client({
@@ -157,6 +189,53 @@ function buildPlayerHtml(signedUrl) {
 </html>`;
 }
 
+async function launchHandler(req, res) {
+  const { token } = req.params;
+
+  if (!token) {
+    return res.status(400).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  // 1. Получить данные токена (до пометки использованным — нужен procedure_type)
+  const row = await getTokenForLaunch(token);
+
+  if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  if (row.session_status !== 'started') {
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  // 2. Атомарно пометить токен использованным
+  const claimed = await markTokenUsed(token);
+  if (!claimed) {
+    // Токен уже использован параллельным запросом
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  // 3. Сгенерировать Mux JWT и сделать редирект на Vercel
+  let playbackId;
+  let muxToken;
+  try {
+    playbackId = getMuxPlaybackId(row.procedure_type);
+    muxToken = generateMuxPlaybackToken(playbackId);
+  } catch (err) {
+    console.error('[launch] Mux token error:', err.message);
+    return res.status(500).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  const vercelBaseRaw = config.vercelPlayerBaseUrl;
+  if (!vercelBaseRaw) {
+    console.error('[launch] VERCEL_PLAYER_BASE_URL не задан');
+    return res.status(500).send(LINK_UNAVAILABLE_HTML);
+  }
+  const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
+
+  const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+  return res.redirect(302, redirectUrl);
+}
+
 async function playerHandler(req, res) {
   const { token } = req.query;
 
@@ -209,6 +288,7 @@ function startPlayerServer() {
   const app = express();
   const port = parseInt(process.env.PLAYER_PORT || '3000', 10);
 
+  app.get('/launch/:token', launchHandler);
   app.get('/player', playerHandler);
 
   app.listen(port, () => {

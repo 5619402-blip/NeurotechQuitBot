@@ -33,4 +33,6 @@ module.exports = {
     testMode: readEnv('PAYMENT_TEST_MODE') === 'true',
   },
   webhookBaseUrl: readEnv('WEBHOOK_BASE_URL'),
+  botApiUrl: readEnv('BOTHOST_API_URL'),
+  vercelPlayerBaseUrl: readEnv('VERCEL_PLAYER_BASE_URL'),
 };

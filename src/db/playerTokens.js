@@ -4,7 +4,7 @@ const db = require('./connection');
 async function createPlayerToken(userId, sessionId) {
   try {
     const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const [row] = await db('player_tokens')
       .insert({
         user_id: userId,
@@ -97,4 +97,41 @@ async function _diagnosePlayerToken(token) {
 }
 // END TEMP DIAGNOSTIC
 
-module.exports = { createPlayerToken, getPlayerToken };
+async function getTokenForLaunch(token) {
+  try {
+    const row = await db('player_tokens as pt')
+      .join('procedure_sessions as ps', 'ps.id', 'pt.procedure_session_id')
+      .join('procedures as p', 'p.id', 'ps.procedure_id')
+      .where('pt.token', token)
+      .select(
+        'pt.id as token_id',
+        'pt.expires_at',
+        'pt.used_at',
+        'pt.is_revoked',
+        'ps.id as session_id',
+        'ps.session_status',
+        'p.procedure_type'
+      )
+      .first();
+    return row ?? null;
+  } catch (err) {
+    console.error('[db] getTokenForLaunch:', err.message);
+    return null;
+  }
+}
+
+async function markTokenUsed(token) {
+  try {
+    const count = await db('player_tokens')
+      .where({ token, is_revoked: false })
+      .whereNull('used_at')
+      .where('expires_at', '>', new Date())
+      .update({ used_at: new Date() });
+    return count;
+  } catch (err) {
+    console.error('[db] markTokenUsed:', err.message);
+    return 0;
+  }
+}
+
+module.exports = { createPlayerToken, getPlayerToken, getTokenForLaunch, markTokenUsed };

@@ -1,7 +1,7 @@
 const { Markup } = require('telegraf');
 const config = require('../../config');
-const { getMuxPlaybackId } = require('../../mux/playbackIds');
-const { generateMuxPlaybackToken } = require('../../mux/token');
+const { createPlayerToken } = require('../../db/playerTokens');
+const { getUserByTelegramId } = require('../../db/users');
 
 // Legacy: presigned URL через Yandex Object Storage — больше не используется как основной путь.
 // Оставлено для справки. Удалить после полного перехода на Mux.
@@ -13,12 +13,17 @@ const { generateMuxPlaybackToken } = require('../../mux/token');
 //   return generatePresignedUrl(row.storage_path);
 // }
 
-function buildLaunchUrl(procedureType) {
-  const playbackId = getMuxPlaybackId(procedureType);
-  const token = generateMuxPlaybackToken(playbackId);
-  const base = config.playerBaseUrl;
-  if (!base) throw new Error('PLAYER_BASE_URL не задан');
-  return `${base}/player?procedure=${procedureType}&playbackId=${playbackId}&token=${token}`;
+async function buildLaunchUrl(ctx, sessionId) {
+  const botApiUrl = config.botApiUrl;
+  if (!botApiUrl) throw new Error('BOTHOST_API_URL не задан');
+
+  const user = await getUserByTelegramId(ctx.from.id);
+  if (!user?.id) throw new Error('Пользователь не найден');
+
+  const playerToken = await createPlayerToken(user.id, sessionId);
+  if (!playerToken) throw new Error('Не удалось создать токен запуска');
+
+  return `${botApiUrl}/launch/${playerToken.token}`;
 }
 
 function buildLaunchText(url) {
@@ -47,7 +52,7 @@ async function sendScreen(ctx, text, keyboard) {
 async function showProcedureLaunch(ctx, { procedureType, sessionId }) {
   let url;
   try {
-    url = buildLaunchUrl(procedureType);
+    url = await buildLaunchUrl(ctx, sessionId);
   } catch (err) {
     console.error('[procedureLaunch] ошибка генерации ссылки:', err.message);
     await sendScreen(
