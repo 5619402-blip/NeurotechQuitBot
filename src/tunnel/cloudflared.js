@@ -5,6 +5,8 @@ const { spawn } = require('child_process');
 const BINARY = '/tmp/cloudflared';
 const DOWNLOAD_URL =
   'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64';
+const TUNNEL_URL_REGEX = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
+const STARTUP_TIMEOUT_MS = 30000;
 
 function download(url, dest, redirectCount) {
   redirectCount = redirectCount || 0;
@@ -33,12 +35,6 @@ function download(url, dest, redirectCount) {
 }
 
 async function startTunnel() {
-  const token = process.env.CLOUDFLARE_TUNNEL_TOKEN;
-  if (!token) {
-    console.log('[cloudflared] token not set, skipping');
-    return;
-  }
-
   if (!fs.existsSync(BINARY)) {
     console.log('[cloudflared] downloading binary...');
     await download(DOWNLOAD_URL, BINARY);
@@ -47,32 +43,47 @@ async function startTunnel() {
 
   fs.chmodSync(BINARY, 0o755);
 
-  console.log('[cloudflared] starting tunnel');
-
-  const proc = spawn(BINARY, ['tunnel', 'run', '--token', token], {
+  // Quick Tunnel — CLOUDFLARE_TUNNEL_TOKEN игнорируется, домен не нужен
+  console.log('[cloudflared] starting quick tunnel → http://localhost:3000');
+  const proc = spawn(BINARY, ['tunnel', '--url', 'http://localhost:3000'], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  proc.stdout.on('data', function (d) {
-    const line = d.toString().trim();
-    if (line) console.log('[cloudflared]', line);
-  });
+  return new Promise(function (resolve, reject) {
+    let resolved = false;
 
-  proc.stderr.on('data', function (d) {
-    const line = d.toString().trim();
-    if (line) console.log('[cloudflared]', line);
-  });
+    const timer = setTimeout(function () {
+      if (resolved) return;
+      proc.kill();
+      reject(new Error('[cloudflared] timeout: URL не получен за 30 секунд'));
+    }, STARTUP_TIMEOUT_MS);
 
-  proc.on('spawn', function () {
-    console.log('[cloudflared] started');
-  });
+    function onLine(line) {
+      if (!line.trim() || resolved) return;
+      console.log('[cloudflared]', line.trim());
+      const match = line.match(TUNNEL_URL_REGEX);
+      if (match) {
+        resolved = true;
+        clearTimeout(timer);
+        console.log('[cloudflared] public URL:', match[0]);
+        resolve(match[0]);
+      }
+    }
 
-  proc.on('error', function (err) {
-    console.error('[cloudflared] spawn error:', err.message);
-  });
+    proc.stdout.on('data', function (d) { d.toString().split('\n').forEach(onLine); });
+    proc.stderr.on('data', function (d) { d.toString().split('\n').forEach(onLine); });
 
-  proc.on('close', function (code) {
-    console.log('[cloudflared] exited code=' + code);
+    proc.on('error', function (err) {
+      if (resolved) return;
+      clearTimeout(timer);
+      reject(new Error('[cloudflared] spawn error: ' + err.message));
+    });
+
+    proc.on('close', function (code) {
+      if (resolved) return;
+      clearTimeout(timer);
+      reject(new Error('[cloudflared] process exited, code=' + code));
+    });
   });
 }
 

@@ -13,19 +13,33 @@ const { bot } = require('./bot/bot');
 const config = require('./config');
 const { startCron } = require('./cron');
 const { startPlayerServer } = require('./player/server');
-// Cloudflare Tunnel отключён — проект перешёл на Mux + Vercel player
-// const { startTunnel } = require('./tunnel/cloudflared');
+const { startTunnel } = require('./tunnel/cloudflared');
+const publicUrl = require('./tunnel/publicUrl');
 
-startPlayerServer();
-// startTunnel().catch(err => console.error('[cloudflared] error:', err.message));
+async function main() {
+  startPlayerServer();
 
-bot.launch().then(() => {
+  try {
+    const tunnelUrl = await startTunnel();
+    publicUrl.set(tunnelUrl);
+    console.log('[main] tunnel ready:', tunnelUrl);
+  } catch (err) {
+    console.error('[main] tunnel error:', err.message);
+    process.exit(1);
+  }
+
+  await bot.launch();
   console.log('NeuroTech Quit Bot запущен');
   if (config.cronEnabled) {
     startCron(bot);
   } else {
     console.log('Cron-задачи отключены');
   }
+}
+
+main().catch(err => {
+  console.error('[main] fatal:', err.message);
+  process.exit(1);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

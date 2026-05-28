@@ -1,7 +1,7 @@
 const { Markup } = require('telegraf');
-const config = require('../../config');
 const { createPlayerToken } = require('../../db/playerTokens');
 const { getUserByTelegramId } = require('../../db/users');
+const publicUrl = require('../../tunnel/publicUrl');
 
 // Legacy: presigned URL через Yandex Object Storage — больше не используется как основной путь.
 // Оставлено для справки. Удалить после полного перехода на Mux.
@@ -14,8 +14,8 @@ const { getUserByTelegramId } = require('../../db/users');
 // }
 
 async function buildLaunchUrl(ctx, sessionId) {
-  const botApiUrl = config.botApiUrl;
-  if (!botApiUrl) throw new Error('BOTHOST_API_URL не задан');
+  const botApiUrl = publicUrl.get();
+  if (!botApiUrl) throw new Error('Tunnel URL не готов — повторите позже');
 
   const user = await getUserByTelegramId(ctx.from.id);
   if (!user?.id) throw new Error('Пользователь не найден');
