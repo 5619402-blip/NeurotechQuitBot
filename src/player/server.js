@@ -1,6 +1,7 @@
 const express = require('express');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const config = require('../config');
 const { getPlayerToken } = require('../db/playerTokens');
 
 const PRESIGN_TTL = 600; // 10 минут
@@ -10,8 +11,8 @@ function buildS3Client() {
     region: 'ru-central1',
     endpoint: 'https://storage.yandexcloud.net',
     credentials: {
-      accessKeyId: process.env.YC_ACCESS_KEY,
-      secretAccessKey: process.env.YC_SECRET_KEY,
+      accessKeyId: config.storage.accessKey,
+      secretAccessKey: config.storage.secretKey,
     },
   });
 }
@@ -180,7 +181,7 @@ async function playerHandler(req, res) {
     return res.status(403).send('Forbidden: session not active');
   }
 
-  const bucket = process.env.STORAGE_BUCKET;
+  const bucket = config.storage.bucket;
   if (!bucket) {
     console.error('[player] STORAGE_BUCKET не задан');
     return res.status(500).send('Server Error');
