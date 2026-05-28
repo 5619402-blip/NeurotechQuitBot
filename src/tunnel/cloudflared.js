@@ -43,7 +43,30 @@ async function startTunnel() {
 
   fs.chmodSync(BINARY, 0o755);
 
-  // Quick Tunnel — CLOUDFLARE_TUNNEL_TOKEN игнорируется, домен не нужен
+  const token = process.env.CLOUDFLARE_TUNNEL_TOKEN;
+
+  if (token) {
+    // Named tunnel — публичный URL задаётся через BOTHOST_API_URL
+    const namedUrl = process.env.BOTHOST_API_URL;
+    if (!namedUrl) throw new Error('[cloudflared] CLOUDFLARE_TUNNEL_TOKEN задан, но BOTHOST_API_URL не задан');
+    console.log('[cloudflared] starting named tunnel → ' + namedUrl);
+    const proc = spawn(BINARY, ['tunnel', 'run', '--token', token], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    proc.stdout.on('data', function (d) {
+      const line = d.toString().trim();
+      if (line) console.log('[cloudflared]', line);
+    });
+    proc.stderr.on('data', function (d) {
+      const line = d.toString().trim();
+      if (line) console.log('[cloudflared]', line);
+    });
+    proc.on('error', function (err) { console.error('[cloudflared] spawn error:', err.message); });
+    proc.on('close', function (code) { console.log('[cloudflared] exited code=' + code); });
+    return namedUrl;
+  }
+
+  // Quick Tunnel fallback — используется только при отсутствии CLOUDFLARE_TUNNEL_TOKEN
   console.log('[cloudflared] starting quick tunnel → http://localhost:3000');
   const proc = spawn(BINARY, ['tunnel', '--url', 'http://localhost:3000'], {
     stdio: ['ignore', 'pipe', 'pipe'],
