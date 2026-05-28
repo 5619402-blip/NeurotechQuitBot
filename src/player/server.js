@@ -7,6 +7,8 @@ const { getMuxPlaybackId } = require('../mux/playbackIds');
 const { generateMuxPlaybackToken } = require('../mux/token');
 
 const PRESIGN_TTL = 600; // 10 минут
+const GRACE_MS = 10_000; // grace window для повторного запроса одного токена
+const redirectCache = new Map(); // token → { url, expiresAt }
 
 const LINK_UNAVAILABLE_HTML = `<!DOCTYPE html>
 <html lang="ru">
@@ -196,21 +198,30 @@ async function launchHandler(req, res) {
     return res.status(400).send(LINK_UNAVAILABLE_HTML);
   }
 
+  // Grace window: повторный запрос того же токена в течение GRACE_MS → тот же redirect
+  const cached = redirectCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log('[launch] grace redirect:', token.slice(0, 8));
+    return res.redirect(302, cached.url);
+  }
+
   // 1. Получить данные токена (до пометки использованным — нужен procedure_type)
   const row = await getTokenForLaunch(token);
 
   if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
+    console.log('[launch] blocked:', token.slice(0, 8));
     return res.status(403).send(LINK_UNAVAILABLE_HTML);
   }
 
   if (row.session_status !== 'started') {
+    console.log('[launch] blocked:', token.slice(0, 8));
     return res.status(403).send(LINK_UNAVAILABLE_HTML);
   }
 
   // 2. Атомарно пометить токен использованным
   const claimed = await markTokenUsed(token);
   if (!claimed) {
-    // Токен уже использован параллельным запросом
+    console.log('[launch] race blocked:', token.slice(0, 8));
     return res.status(403).send(LINK_UNAVAILABLE_HTML);
   }
 
@@ -233,6 +244,8 @@ async function launchHandler(req, res) {
   const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
 
   const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+  redirectCache.set(token, { url: redirectUrl, expiresAt: Date.now() + GRACE_MS });
+  console.log('[launch] redirect ok:', token.slice(0, 8));
   return res.redirect(302, redirectUrl);
 }
 
