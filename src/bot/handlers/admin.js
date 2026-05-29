@@ -1,6 +1,9 @@
 const config = require('../../config');
 const { getPendingReviews, updateReviewModerationStatus } = require('../../db/userReviews');
 const { createGiftToken } = require('../../db/giftTokens');
+const { createAdminPreviewToken } = require('../../db/adminPreviewTokens');
+const { getUserByTelegramId } = require('../../db/users');
+const publicUrl = require('../../tunnel/publicUrl');
 
 const GIFT_TYPE_MAP = {
   single: 'gift_single_procedure',
@@ -26,7 +29,66 @@ function isAdmin(telegramId) {
   return config.adminTelegramIds.includes(String(telegramId));
 }
 
+const PREVIEW_PROCEDURE_TYPES = ['anti_tobacco', 'quick_lever', 'alpha'];
+
+const PREVIEW_PROCEDURE_LABELS = {
+  anti_tobacco: 'Антитабак',
+  quick_lever:  'Быстрый рычаг',
+  alpha:        'Альфа',
+};
+
 module.exports = (bot) => {
+
+  bot.command('admin_preview', async (ctx) => {
+    if (!isAdmin(ctx.from.id)) return;
+    if (ctx.chat.type !== 'private') return;
+
+    const parts = ctx.message.text.trim().split(/\s+/);
+    const typeInput = parts[1];
+
+    if (!typeInput || !PREVIEW_PROCEDURE_TYPES.includes(typeInput)) {
+      return ctx.reply(
+        'Укажите тип процедуры. Допустимые значения: anti_tobacco, quick_lever, alpha\n\n' +
+        'Пример: /admin_preview quick_lever'
+      );
+    }
+
+    let adminUser;
+    try {
+      adminUser = await getUserByTelegramId(ctx.from.id);
+    } catch (err) {
+      console.error('[admin] /admin_preview getUserByTelegramId:', err.message);
+      return ctx.reply('Ошибка при поиске вашего аккаунта.');
+    }
+    if (!adminUser?.id) {
+      return ctx.reply('Ваш аккаунт не найден в базе данных бота. Напишите /start сначала.');
+    }
+
+    let tokenRow;
+    try {
+      tokenRow = await createAdminPreviewToken(adminUser.id, typeInput);
+    } catch (err) {
+      console.error('[admin] /admin_preview createAdminPreviewToken:', err.message);
+      return ctx.reply('Ошибка при создании preview-токена. Попробуйте снова.');
+    }
+
+    const tunnelUrl = publicUrl.get();
+    if (!tunnelUrl) {
+      return ctx.reply('Ошибка: tunnel URL не готов. Попробуйте позже.');
+    }
+
+    const link = `${tunnelUrl}/admin-preview/${tokenRow.token}`;
+    const label = PREVIEW_PROCEDURE_LABELS[typeInput];
+    const expiresAt = new Date(tokenRow.expires_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+    await ctx.reply(
+      `Админ-preview ссылка для процедуры: ${label}.\n` +
+      `Ссылка действует 2 часа, до 10 открытий.\n` +
+      `Доступ пользователя не списывается.\n\n` +
+      `Действует до: ${expiresAt} (МСК)\n\n` +
+      link
+    );
+  });
 
   bot.command('gift', async (ctx) => {
     if (!isAdmin(ctx.from.id)) return;

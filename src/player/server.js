@@ -3,6 +3,7 @@ const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const config = require('../config');
 const { getPlayerToken, getTokenForLaunch, markTokenUsed } = require('../db/playerTokens');
+const { getAdminPreviewToken, incrementAdminPreviewUseCount } = require('../db/adminPreviewTokens');
 const { getMuxPlaybackId } = require('../mux/playbackIds');
 const { generateMuxPlaybackToken } = require('../mux/token');
 
@@ -291,6 +292,63 @@ async function launchHandler(req, res) {
   }
 }
 
+async function adminPreviewHandler(req, res) {
+  const { token } = req.params;
+  if (!token) return res.status(400).send(LINK_UNAVAILABLE_HTML);
+
+  let row;
+  try {
+    row = await getAdminPreviewToken(token);
+  } catch (err) {
+    console.error('[admin-preview] DB error:', err.message);
+    return res.status(500).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  if (!row) {
+    console.log('[admin-preview] not found:', token.slice(0, 8));
+    return res.status(404).send(LINK_UNAVAILABLE_HTML);
+  }
+  if (row.is_revoked) {
+    console.log('[admin-preview] revoked:', token.slice(0, 8));
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+  if (new Date(row.expires_at) < new Date()) {
+    console.log('[admin-preview] expired:', token.slice(0, 8));
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+  if (row.use_count >= row.max_uses) {
+    console.log('[admin-preview] max uses reached:', token.slice(0, 8));
+    return res.status(403).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  let playbackId;
+  let muxToken;
+  try {
+    playbackId = getMuxPlaybackId(row.procedure_type);
+    muxToken = generateMuxPlaybackToken(playbackId);
+  } catch (err) {
+    console.error('[admin-preview] Mux error:', err.message);
+    return res.status(500).send(LINK_UNAVAILABLE_HTML);
+  }
+
+  const vercelBaseRaw = config.vercelPlayerBaseUrl;
+  if (!vercelBaseRaw) {
+    console.error('[admin-preview] VERCEL_PLAYER_BASE_URL не задан');
+    return res.status(500).send(LINK_UNAVAILABLE_HTML);
+  }
+  const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
+
+  try {
+    await incrementAdminPreviewUseCount(row.id);
+  } catch (err) {
+    console.error('[admin-preview] incrementUseCount error:', err.message);
+  }
+
+  const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+  console.log('[admin-preview] redirect ok:', token.slice(0, 8), '| uses:', row.use_count + 1, '/', row.max_uses);
+  return res.redirect(302, redirectUrl);
+}
+
 async function playerHandler(req, res) {
   const { token } = req.query;
 
@@ -344,6 +402,7 @@ function startPlayerServer() {
   const port = parseInt(process.env.PLAYER_PORT || '3000', 10);
 
   app.get('/launch/:token', launchHandler);
+  app.get('/admin-preview/:token', adminPreviewHandler);
   app.get('/player', playerHandler);
 
   app.listen(port, () => {
