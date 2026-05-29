@@ -31,8 +31,21 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
+console.log('[bot] before registerStart');
 registerStart(bot);
-registerAdmin(bot);
+console.log('[bot] after registerStart');
+
+console.log('[bot] before registerAdmin');
+try {
+  registerAdmin(bot);
+  console.log('[bot] after registerAdmin');
+} catch (err) {
+  console.error('[bot] registerAdmin failed:', err.message, err.stack);
+  throw err;
+}
+
+console.log('[bot] before registerCallbacks');
 registerCallbacks(bot);
+console.log('[bot] after registerCallbacks');
 
 module.exports = { bot };
