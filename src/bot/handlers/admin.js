@@ -39,7 +39,10 @@ const PREVIEW_PROCEDURE_LABELS = {
 
 module.exports = (bot) => {
 
+  console.log('[admin] registerAdmin called');
+
   bot.command('admin_preview', async (ctx) => {
+    console.log('[admin] admin_preview received from', ctx.from?.id, '| isAdmin:', isAdmin(ctx.from?.id));
     if (!isAdmin(ctx.from.id)) return;
     if (ctx.chat.type !== 'private') return;
 
@@ -91,6 +94,7 @@ module.exports = (bot) => {
   });
 
   bot.command('gift', async (ctx) => {
+    console.log('[admin] gift received from', ctx.from?.id, '| isAdmin:', isAdmin(ctx.from?.id));
     if (!isAdmin(ctx.from.id)) return;
     if (ctx.chat.type !== 'private') return;
 
