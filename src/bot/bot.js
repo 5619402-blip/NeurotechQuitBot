@@ -32,7 +32,7 @@ bot.use(async (ctx, next) => {
 });
 
 registerStart(bot);
-registerCallbacks(bot);
 registerAdmin(bot);
+registerCallbacks(bot);
 
 module.exports = { bot };
