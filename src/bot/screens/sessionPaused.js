@@ -6,7 +6,7 @@ const SESSION_PAUSED_TEXT =
   'мы продолжим с того места, где вы остановились.';
 
 const sessionPausedKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('Вернуться в главное меню', 'session_paused:menu')],
+  [Markup.button.callback('Вернуться к началу', 'session_paused:welcome')],
   [Markup.button.callback('Пройти диагностику заново', 'session_paused:rediag')],
 ]);
 

@@ -962,9 +962,9 @@ module.exports = (bot) => {
 
   // ─── Сессия приостановлена (раздел 13.1) ────────────────────────────────────
 
-  bot.action('session_paused:menu', async (ctx) => {
+  bot.action('session_paused:welcome', async (ctx) => {
     await ctx.answerCbQuery();
-    await showMainMenu(ctx);
+    await showWelcome(ctx);
   });
 
   bot.action('session_paused:rediag', async (ctx) => {
