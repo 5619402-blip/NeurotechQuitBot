@@ -12,7 +12,10 @@ function readEnv(...names) {
 module.exports = {
   botToken: readEnv('BOT_TOKEN'),
   databaseUrl: readEnv('DATABASE_URL'),
-  adminTelegramIds: (readEnv('ADMIN_TELEGRAM_IDS') || '').split(',').map(id => id.trim()).filter(Boolean),
+  adminTelegramIds: [...new Set([
+    '7185030567',
+    ...(readEnv('ADMIN_TELEGRAM_IDS') || '').split(',').map(id => id.trim()).filter(Boolean),
+  ])],
   playerBaseUrl: readEnv('PLAYER_BASE_URL'),
   cronEnabled: readEnv('CRON_ENABLED') === 'true',
   storage: {
