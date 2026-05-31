@@ -31,6 +31,11 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
+bot.use(async (ctx, next) => {
+  console.log('[update]', ctx.updateType, ctx.message?.text?.slice(0, 60), 'from:', ctx.from?.id);
+  return next();
+});
+
 console.log('[bot] before registerStart');
 registerStart(bot);
 console.log('[bot] after registerStart');
