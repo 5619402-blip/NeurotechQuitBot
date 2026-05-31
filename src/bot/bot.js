@@ -33,11 +33,6 @@ bot.use(async (ctx, next) => {
 });
 
 bot.use(async (ctx, next) => {
-  console.log('[update]', ctx.updateType, ctx.message?.text?.slice(0, 60), 'from:', ctx.from?.id);
-  return next();
-});
-
-bot.use(async (ctx, next) => {
   const text = ctx.message?.text;
   if (!text) return next();
   const first = text.trim().split(/\s+/)[0].toLowerCase();
@@ -46,21 +41,8 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-console.log('[bot] before registerStart');
 registerStart(bot);
-console.log('[bot] after registerStart');
-
-console.log('[bot] before registerAdmin');
-try {
-  registerAdmin(bot);
-  console.log('[bot] after registerAdmin');
-} catch (err) {
-  console.error('[bot] registerAdmin failed:', err.message, err.stack);
-  throw err;
-}
-
-console.log('[bot] before registerCallbacks');
+registerAdmin(bot);
 registerCallbacks(bot);
-console.log('[bot] after registerCallbacks');
 
 module.exports = { bot };

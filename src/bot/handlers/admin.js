@@ -38,7 +38,6 @@ const PREVIEW_PROCEDURE_LABELS = {
 };
 
 async function handleAdminPreviewCommand(ctx) {
-  console.log('[admin] admin_preview received from', ctx.from?.id, '| isAdmin:', isAdmin(ctx.from?.id));
   if (!isAdmin(ctx.from.id)) return;
   if (ctx.chat.type !== 'private') return;
 
@@ -90,7 +89,6 @@ async function handleAdminPreviewCommand(ctx) {
 }
 
 async function handleGiftCommand(ctx) {
-  console.log('[admin] gift received from', ctx.from?.id, '| isAdmin:', isAdmin(ctx.from?.id));
   if (!isAdmin(ctx.from.id)) return;
   if (ctx.chat.type !== 'private') return;
 
@@ -146,8 +144,6 @@ async function handleGiftCommand(ctx) {
 }
 
 module.exports = (bot) => {
-
-  console.log('[admin] registerAdmin called');
 
   bot.command('admin_preview', handleAdminPreviewCommand);
   bot.command('gift', handleGiftCommand);
