@@ -506,6 +506,11 @@ module.exports = (bot) => {
     await showMainMenu(ctx);
   });
 
+  bot.action('my_access:to_welcome', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showWelcome(ctx);
+  });
+
   // ─── Подготовка к процедуре (раздел 7.2 / 7.3 / 7.4) ───────────────────────
 
   bot.action(/^preparation:ready:/, async (ctx) => {

@@ -35,7 +35,7 @@ const PAUSED_NO_ACCESS_TEXT =
 
 const pausedNoAccessKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('Пройти диагностику', 'welcome:diagnostic')],
-  [Markup.button.callback('Главное меню', 'my_access:menu')],
+  [Markup.button.callback('Вернуться к началу', 'my_access:to_welcome')],
 ]);
 
 const BANNER_PAUSED =
