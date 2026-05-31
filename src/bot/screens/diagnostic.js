@@ -117,7 +117,6 @@ async function showDiagQ_decision(ctx) {
     Markup.inlineKeyboard([
       [Markup.button.callback('Да, моё решение', 'diag:decision_yes')],
       [Markup.button.callback('Нет, меня уговорили', 'diag:decision_no')],
-      [Markup.button.callback('Пока не уверен(а)', 'diag:decision_not_sure')],
       [Markup.button.callback('Назад', 'diag:nav_motiv')],
     ])
   );

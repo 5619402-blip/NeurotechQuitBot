@@ -18,6 +18,7 @@ const { saveDraftAnswer, getDraftAnswer, getAllDraftAnswers, createDiagnosticRec
 const { saveConsent } = require('../../db/consents');
 const { showLowReadiness } = require('../screens/lowReadiness');
 const { showNotSure } = require('../screens/notSure');
+const { showNotMyDecision } = require('../screens/notMyDecision');
 const { showConsent } = require('../screens/consent');
 const { showTariff } = require('../screens/tariff');
 const { showPaymentStub } = require('../screens/paymentStub');
@@ -248,7 +249,7 @@ module.exports = (bot) => {
     }
 
     if (value === 'no') {
-      return showLowReadiness(ctx);
+      return showNotMyDecision(ctx);
     }
 
     // value === 'yes': мотивация 1–3 уже заблокирована на экране мотивации
@@ -507,6 +508,11 @@ module.exports = (bot) => {
   });
 
   bot.action('my_access:to_welcome', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showWelcome(ctx);
+  });
+
+  bot.action('not_my_decision:to_welcome', async (ctx) => {
     await ctx.answerCbQuery();
     await showWelcome(ctx);
   });
