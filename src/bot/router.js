@@ -7,8 +7,22 @@ const { showNotSure } = require('./screens/notSure');
 const { showConsent } = require('./screens/consent');
 const { showTariff } = require('./screens/tariff');
 const { showMyAccess } = require('./screens/myAccess');
+const { showRulesVideo } = require('./screens/rulesVideo');
+const { showPreparation } = require('./screens/preparation');
+const { getAccessRights, getProtocolProgress, getNextProcedureType } = require('../db/access');
 const { showProcedureInterrupted } = require('./screens/procedureInterrupted');
 const { showNotSmokingResult } = require('./screens/notSmokingResult');
+
+async function routeToPreparation(ctx, user) {
+  const [ar, progress] = await Promise.all([
+    getAccessRights(user.id),
+    getProtocolProgress(user.id),
+  ]);
+  if (!ar) return showTariff(ctx, user);
+  const step = progress?.current_step_number ?? 0;
+  const procedureType = getNextProcedureType(step);
+  return showPreparation(ctx, { isFirstProcedure: step === 0, procedureType });
+}
 
 async function route(ctx, user) {
   switch (user.user_status) {
@@ -41,11 +55,17 @@ async function route(ctx, user) {
     case USER_STATUS.PAYMENT_PENDING:
       return showTariff(ctx, user);
 
-    // Есть активный доступ → Мой доступ (раздел 10.1)
+    // Первичный flow — без myAccess до нажатия Play
     case USER_STATUS.PAID_SINGLE:
     case USER_STATUS.PAID_FULL:
+      if (!user.rules_video_watched_at) return showRulesVideo(ctx);
+      return routeToPreparation(ctx, user);
+
     case USER_STATUS.RULES_WATCHED:
     case USER_STATUS.PREPARATION_STARTED:
+      return routeToPreparation(ctx, user);
+
+    // ghost-статус (не выставляется в production) — myAccess как безопасный fallback
     case USER_STATUS.PROTOCOL_ACTIVE:
       return showMyAccess(ctx, user);
 
