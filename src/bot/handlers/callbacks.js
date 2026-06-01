@@ -566,6 +566,12 @@ module.exports = (bot) => {
   bot.action('preparation:back', async (ctx) => {
     await ctx.answerCbQuery();
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    const progress = user?.id ? await getProtocolProgress(user.id) : null;
+    const procedureEverLaunched =
+      user?.user_status === 'procedure_in_progress' ||
+      !!user?.has_active_unfinished_procedure ||
+      (progress?.current_step_number ?? 0) >= 1;
+    if (!procedureEverLaunched) return showRulesVideo(ctx);
     await showMyAccess(ctx, user);
   });
 
@@ -587,14 +593,14 @@ module.exports = (bot) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    if (!user?.id) return showMyAccess(ctx, user);
+    if (!user?.id) return showWelcome(ctx);
 
     const [ar, progress] = await Promise.all([
       getAccessRights(user.id),
       getProtocolProgress(user.id),
     ]);
 
-    if (!ar) return showMyAccess(ctx, user);
+    if (!ar) return showTariff(ctx, user);
 
     const step = progress?.current_step_number ?? 0;
     const nextType = getNextProcedureType(step);
@@ -614,14 +620,19 @@ module.exports = (bot) => {
   bot.action('rules_video:to_access', async (ctx) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
-    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    await showMyAccess(ctx, user);
+    await showWelcome(ctx);
   });
 
   bot.action('rules_video:back', async (ctx) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    const progress = user?.id ? await getProtocolProgress(user.id) : null;
+    const procedureEverLaunched =
+      user?.user_status === 'procedure_in_progress' ||
+      !!user?.has_active_unfinished_procedure ||
+      (progress?.current_step_number ?? 0) >= 1;
+    if (!procedureEverLaunched) return showWhatAwaits(ctx);
     await showMyAccess(ctx, user);
   });
 
@@ -632,7 +643,7 @@ module.exports = (bot) => {
     const procedureType = ctx.callbackQuery.data.replace('player_warning:start:', '');
 
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    if (!user?.id) return showMyAccess(ctx, user);
+    if (!user?.id) return showWelcome(ctx);
 
     if (user.has_active_unfinished_procedure) {
       await ctx.editMessageText(
@@ -642,14 +653,14 @@ module.exports = (bot) => {
     }
 
     const ar = await getAccessRights(user.id);
-    if (!ar) return showMyAccess(ctx, user);
+    if (!ar) return showTariff(ctx, user);
 
     const isMain = procedureType !== 'alpha';
     if (isMain) {
       const hasAccess =
         user.access_type === 'full_access' ||
         ar.paid_main_procedures_count > ar.used_main_procedures_count;
-      if (!hasAccess) return showMyAccess(ctx, user);
+      if (!hasAccess) return showTariff(ctx, user);
     } else {
       const alphaAvailable =
         user.access_type === 'full_access' ||
