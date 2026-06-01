@@ -41,13 +41,9 @@ function buildPreparationText(procedureType, isFirstProcedure) {
   return `Подготовка к процедуре «${name}»\n\n${items}`;
 }
 
-function buildPreparationKeyboard(procedureType, isFirstProcedure) {
-  const needCallback = isFirstProcedure
-    ? `preparation:need_first:${procedureType}`
-    : `preparation:need_next:${procedureType}`;
+function buildPreparationKeyboard(procedureType) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('Да, я готов', `preparation:ready:${procedureType}`)],
-    [Markup.button.callback('Мне нужно подготовиться', needCallback)],
+    [Markup.button.callback('Я готов перейти к процедуре', `preparation:ready:${procedureType}`)],
     [Markup.button.callback('Назад', 'preparation:back')],
   ]);
 }
@@ -81,7 +77,7 @@ async function sendScreen(ctx, text, keyboard) {
 
 async function showPreparation(ctx, { isFirstProcedure, procedureType }) {
   const text = buildPreparationText(procedureType, isFirstProcedure);
-  const keyboard = buildPreparationKeyboard(procedureType, isFirstProcedure);
+  const keyboard = buildPreparationKeyboard(procedureType);
   await sendScreen(ctx, text, keyboard);
 }
 
