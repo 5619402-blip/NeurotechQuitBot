@@ -38,6 +38,7 @@ const { showProcedureInterrupted } = require('../screens/procedureInterrupted');
 const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
 const { showPostProcedure } = require('../screens/postProcedure');
+const { showPostProcedureWait } = require('../screens/postProcedureWait');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
 const { showNotSmokingResult } = require('../screens/notSmokingResult');
@@ -848,6 +849,13 @@ module.exports = (bot) => {
     await showPostQ1(ctx, sessionId);
   });
 
+  bot.action('post_procedure_wait:to_access', async (ctx) => {
+    await ctx.answerCbQuery();
+    await updateUserStatus(ctx.from.id, 'waiting_next_procedure');
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    await showMyAccess(ctx, user);
+  });
+
   bot.action(/^post_q:1:/, async (ctx) => {
     await ctx.answerCbQuery();
     const parts = ctx.callbackQuery.data.split(':');
@@ -867,7 +875,7 @@ module.exports = (bot) => {
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'q2', value);
-    await showPostQ3(ctx, sessionId);
+    await showPostProcedureWait(ctx);
   });
 
   bot.action(/^post_q:3:/, async (ctx) => {
