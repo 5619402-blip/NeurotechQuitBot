@@ -24,6 +24,7 @@ const { showDiagConsent, startDiagnosticFlow, DIAG_CONSENT_VERSION } = require('
 const { showTariff } = require('../screens/tariff');
 const { showPaymentStub } = require('../screens/paymentStub');
 const { showPaymentSuccess } = require('../screens/paymentSuccess');
+const { showWhatAwaits } = require('../screens/whatAwaits');
 const { showPaymentError } = require('../screens/paymentError');
 const { getUserByTelegramId, updateUserStatus, updateUserAfterPayment, setActiveUnfinishedProcedure, setPaused, setRulesVideoWatched, setLastBotMessageId } = require('../../db/users');
 const { processTestPayment } = require('../../db/payments');
@@ -411,11 +412,16 @@ module.exports = (bot) => {
     try {
       await processTestPayment(ctx.from.id, variant);
       await updateUserAfterPayment(ctx.from.id, variant);
-      await showPaymentSuccess(ctx);
+      await showWhatAwaits(ctx);
     } catch (err) {
       console.error(`[payment:test_${variant}]`, err.message);
       await showPaymentError(ctx, variant);
     }
+  });
+
+  bot.action('what_awaits:continue', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showRulesVideo(ctx);
   });
 
   bot.action('payment:back_new', async (ctx) => {
