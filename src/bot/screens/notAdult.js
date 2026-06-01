@@ -2,11 +2,12 @@ const { Markup } = require('telegraf');
 const { updateUserStatus } = require('../../db/users');
 
 const NOT_ADULT_TEXT =
-  'NeuroTech Quit рассчитан на пользователей старше 18 лет.\n\n' +
-  'К сожалению, мы не можем предоставить доступ к протоколу.';
+  'Сейчас протокол NeuroTech Quit доступен только пользователям от 18 лет.\n\n' +
+  'Если вам ещё нет 18 лет, пожалуйста, не продолжайте прохождение и обсудите ' +
+  'вопрос отказа от никотина с родителями, законным представителем или специалистом.';
 
 const notAdultKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('Вернуться на главный экран', 'welcome:show')],
+  [Markup.button.callback('Вернуться к началу', 'welcome:show')],
 ]);
 
 async function showNotAdult(ctx) {

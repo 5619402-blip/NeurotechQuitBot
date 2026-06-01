@@ -15,11 +15,12 @@ const {
 const { showNotAdult } = require('../screens/notAdult');
 const { showNotReady } = require('../screens/notReady');
 const { saveDraftAnswer, getDraftAnswer, getAllDraftAnswers, createDiagnosticRecord } = require('../../db/diagnostics');
-const { saveConsent } = require('../../db/consents');
+const { saveConsent, hasConsentForVersion } = require('../../db/consents');
 const { showLowReadiness } = require('../screens/lowReadiness');
 const { showNotSure } = require('../screens/notSure');
 const { showNotMyDecision } = require('../screens/notMyDecision');
 const { showConsent } = require('../screens/consent');
+const { showDiagConsent, startDiagnosticFlow, DIAG_CONSENT_VERSION } = require('../screens/diagConsent');
 const { showTariff } = require('../screens/tariff');
 const { showPaymentStub } = require('../screens/paymentStub');
 const { showPaymentSuccess } = require('../screens/paymentSuccess');
@@ -75,7 +76,7 @@ module.exports = (bot) => {
   // welcome:diagnostic — раздел 5.4
   bot.action('welcome:diagnostic', async (ctx) => {
     await ctx.answerCbQuery();
-    await showDiagQ_adult(ctx);
+    await startDiagnosticFlow(ctx);
   });
 
   // welcome:show — возврат к Welcome (Назад из первого вопроса диагностики)
@@ -110,7 +111,7 @@ module.exports = (bot) => {
     } catch {
       // видео уже удалено или недоступно
     }
-    await showDiagQ_adult(ctx);
+    await startDiagnosticFlow(ctx);
   });
 
   // ─── Отзывы до диагностики (5.3) ────────────────────────────────────────
@@ -118,7 +119,7 @@ module.exports = (bot) => {
   bot.action('reviews:diagnostic', async (ctx) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
-    await showDiagQ_adult(ctx);
+    await startDiagnosticFlow(ctx);
   });
 
   bot.action('reviews:back', async (ctx) => {
@@ -139,7 +140,7 @@ module.exports = (bot) => {
     await ctx.answerCbQuery();
     const target = ctx.callbackQuery.data.replace('diag:nav_', '');
     const screens = {
-      adult:   showDiagQ_adult,
+      adult:   showDiagConsent,
       dur:     showDiagQ_duration,
       att:     showDiagQ_attempts,
       maxtime: showDiagQ_maxtime,
@@ -158,6 +159,25 @@ module.exports = (bot) => {
   });
 
   bot.action('diag:adult_no', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showNotAdult(ctx);
+  });
+
+  // ─── Диагностическое согласие 18+ ───────────────────────────────────────
+
+  bot.action('diag_consent:accept', async (ctx) => {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+    const user = await getUserByTelegramId(telegramId).catch(() => null);
+    if (user?.id) {
+      await saveConsent(user.id, telegramId, DIAG_CONSENT_VERSION, 'diagnostic_consent').catch(e =>
+        console.error('[diag_consent] saveConsent:', e.message)
+      );
+    }
+    await showDiagQ_duration(ctx);
+  });
+
+  bot.action('diag_consent:under18', async (ctx) => {
     await ctx.answerCbQuery();
     await showNotAdult(ctx);
   });
@@ -981,7 +1001,7 @@ module.exports = (bot) => {
   bot.action('session_paused:rediag', async (ctx) => {
     await ctx.answerCbQuery();
     await updateUserStatus(ctx.from.id, 'diagnostic_started');
-    await showDiagQ_adult(ctx);
+    await startDiagnosticFlow(ctx);
   });
 
   // ─── Экран результата «Я уже не курю» (раздел 13.2) ─────────────────────────
@@ -1437,7 +1457,7 @@ module.exports = (bot) => {
     const NO_DIAG = ['new', 'intro_video_watched', 'diagnostic_started', 'low_motivation', 'not_sure_clarification'];
 
     if (NO_DIAG.includes(status)) {
-      return showDiagQ_adult(ctx);
+      return startDiagnosticFlow(ctx);
     }
 
     if (status === 'diagnostic_completed') {

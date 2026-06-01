@@ -11,4 +11,11 @@ async function saveConsent(userId, telegramId, version, source) {
   console.log(`[consent] saved: user=${telegramId} version=${version}`);
 }
 
-module.exports = { saveConsent };
+async function hasConsentForVersion(userId, version) {
+  const row = await db('user_consents')
+    .where({ user_id: userId, consent_version: version })
+    .first();
+  return !!row;
+}
+
+module.exports = { saveConsent, hasConsentForVersion };

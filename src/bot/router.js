@@ -1,7 +1,7 @@
 // Маршрутизация /start по user_status — раздел 4 docs/TZ_v4.md
 const USER_STATUS = require('../constants/userStatus');
 const { showWelcome } = require('./screens/welcome');
-const { showDiagQ_adult } = require('./screens/diagnostic');
+const { startDiagnosticFlow } = require('./screens/diagConsent');
 const { showLowReadiness } = require('./screens/lowReadiness');
 const { showNotSure } = require('./screens/notSure');
 const { showConsent } = require('./screens/consent');
@@ -21,7 +21,7 @@ async function route(ctx, user) {
     // Диагностика начата, но не завершена → начать диагностику с первого вопроса (раздел 5.4)
     // TODO: после подключения БД — возобновлять с сохранённого места через draft_answers
     case USER_STATUS.DIAGNOSTIC_STARTED:
-      return showDiagQ_adult(ctx);
+      return startDiagnosticFlow(ctx);
 
     // Диагностика завершена, согласие не принято → пользовательское согласие (раздел 5.8)
     case USER_STATUS.DIAGNOSTIC_COMPLETED:
