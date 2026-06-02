@@ -39,6 +39,8 @@ const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
 const { showPostProcedure } = require('../screens/postProcedure');
 const { showPostProcedureWait } = require('../screens/postProcedureWait');
+const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
+const { showSingleProcedureInterrupted } = require('../screens/singleProcedureInterrupted');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
 const { showNotSmokingResult } = require('../screens/notSmokingResult');
@@ -413,6 +415,10 @@ module.exports = (bot) => {
     try {
       await processTestPayment(ctx.from.id, variant);
       await updateUserAfterPayment(ctx.from.id, variant);
+      if (variant === 'upgrade') {
+        const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+        return showMyAccess(ctx, user);
+      }
       await showWhatAwaits(ctx);
     } catch (err) {
       console.error(`[payment:test_${variant}]`, err.message);
@@ -816,6 +822,40 @@ module.exports = (bot) => {
     await showMyAccess(ctx, freshUser);
   });
 
+  // ─── Незавершённая пробная процедура single_procedure ───────────────────────
+
+  bot.action('single_interrupted:restart', async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (!user?.id) return showSingleProcedureInterrupted(ctx);
+    const session = await getStartedSessionForUser(user.id);
+    if (session) await interruptSession(session.id);
+    await setActiveUnfinishedProcedure(user.id, false);
+    await updateUserStatus(ctx.from.id, 'rules_watched');
+    await showRulesVideo(ctx);
+  });
+
+  bot.action('single_interrupted:later', async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (user?.id) {
+      const session = await getStartedSessionForUser(user.id);
+      if (session) await interruptSession(session.id);
+      await setActiveUnfinishedProcedure(user.id, false);
+      await updateUserStatus(ctx.from.id, 'procedure_interrupted');
+    }
+    await ctx.editMessageText(
+      'Хорошо. Нажмите /start, когда будете готовы вернуться к процедуре.'
+    ).catch(() =>
+      ctx.reply('Хорошо. Нажмите /start, когда будете готовы вернуться к процедуре.')
+    );
+  });
+
+  bot.action('single_interrupted:menu', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showMainMenu(ctx);
+  });
+
   // ─── Главное меню (раздел 10.3) ─────────────────────────────────────────────
 
   bot.action('main_menu:my_access', async (ctx) => {
@@ -856,6 +896,18 @@ module.exports = (bot) => {
     await showMyAccess(ctx, user);
   });
 
+  // ─── Завершение пробной процедуры single_procedure ──────────────────────────
+
+  bot.action('single_completed:upgrade', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showPaymentStub(ctx, 'upgrade');
+  });
+
+  bot.action('single_completed:menu', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showMainMenu(ctx);
+  });
+
   bot.action(/^post_q:1:/, async (ctx) => {
     await ctx.answerCbQuery();
     const parts = ctx.callbackQuery.data.split(':');
@@ -875,6 +927,10 @@ module.exports = (bot) => {
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'q2', value);
+    const ar = await getAccessRights(user.id);
+    if (ar?.access_type === 'single_procedure') {
+      return showSingleProcedureCompleted(ctx);
+    }
     await showPostProcedureWait(ctx);
   });
 

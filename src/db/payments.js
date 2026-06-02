@@ -37,7 +37,7 @@ async function processTestPayment(telegramId, variant) {
       access_status: 'active',
       paid_main_procedures_count: 1,
       used_main_procedures_count: 0,
-      available_alpha_sessions_count: 1,
+      available_alpha_sessions_count: 0,
       used_alpha_sessions_count: 0,
       upgrade_available: true,
       upgrade_amount: 3910,

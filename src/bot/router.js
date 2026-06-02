@@ -11,6 +11,7 @@ const { showRulesVideo } = require('./screens/rulesVideo');
 const { showPreparation } = require('./screens/preparation');
 const { getAccessRights, getProtocolProgress, getNextProcedureType } = require('../db/access');
 const { showProcedureInterrupted } = require('./screens/procedureInterrupted');
+const { showSingleProcedureInterrupted } = require('./screens/singleProcedureInterrupted');
 const { showNotSmokingResult } = require('./screens/notSmokingResult');
 
 async function routeToPreparation(ctx, user) {
@@ -72,6 +73,9 @@ async function route(ctx, user) {
     // Процедура начата, но прервана → предложить начать заново
     case USER_STATUS.PROCEDURE_IN_PROGRESS:
     case USER_STATUS.PROCEDURE_INTERRUPTED:
+      if (user.access_type === 'single_procedure') {
+        return showSingleProcedureInterrupted(ctx);
+      }
       return showProcedureInterrupted(ctx);
 
     // Ожидается следующая процедура → Мой доступ с рекомендованной процедурой (раздел 9.2)
