@@ -1,9 +1,20 @@
+const { Markup } = require('telegraf');
 const config = require('../../config');
 const { getPendingReviews, updateReviewModerationStatus } = require('../../db/userReviews');
 const { createGiftToken } = require('../../db/giftTokens');
 const { createAdminPreviewToken } = require('../../db/adminPreviewTokens');
 const { getUserByTelegramId } = require('../../db/users');
 const publicUrl = require('../../tunnel/publicUrl');
+const { showWelcome } = require('../screens/welcome');
+const { showIntroVideo } = require('../screens/introVideo');
+const { startDiagnosticFlow } = require('../screens/diagConsent');
+const { showConsent } = require('../screens/consent');
+const { showTariff } = require('../screens/tariff');
+const { showPreparation } = require('../screens/preparation');
+const { showPlayerWarning } = require('../screens/playerWarning');
+const { showPostProcedureWait } = require('../screens/postProcedureWait');
+const { showSupportRequest } = require('../screens/supportRequest');
+const { showMainMenu } = require('../screens/mainMenu');
 
 const GIFT_TYPE_MAP = {
   single: 'gift_single_procedure',
@@ -143,8 +154,27 @@ async function handleGiftCommand(ctx) {
   await ctx.reply(lines.join('\n'));
 }
 
+const ADMIN_MENU_TEXT = 'Админ-меню NeuroTech Quit';
+
+function buildAdminMenuKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('Welcome', 'admin:goto:welcome'), Markup.button.callback('Intro video', 'admin:goto:intro_video')],
+    [Markup.button.callback('Диагностика', 'admin:goto:diagnostic'), Markup.button.callback('Consent / 18+', 'admin:goto:consent')],
+    [Markup.button.callback('Тариф', 'admin:goto:tariff'), Markup.button.callback('Подготовка (1я проц.)', 'admin:goto:preparation')],
+    [Markup.button.callback('Player warning', 'admin:goto:player_warning'), Markup.button.callback('PostProcedureWait', 'admin:goto:post_proc_wait')],
+    [Markup.button.callback('Поддержка', 'admin:goto:support'), Markup.button.callback('Главное меню', 'admin:goto:main_menu')],
+  ]);
+}
+
+async function handleAdminCommand(ctx) {
+  if (!isAdmin(ctx.from.id)) return;
+  if (ctx.chat.type !== 'private') return;
+  await ctx.reply(ADMIN_MENU_TEXT, buildAdminMenuKeyboard());
+}
+
 module.exports = (bot) => {
 
+  bot.command('admin', handleAdminCommand);
   bot.command('admin_preview', handleAdminPreviewCommand);
   bot.command('gift', handleGiftCommand);
 
@@ -206,7 +236,43 @@ module.exports = (bot) => {
     }
   });
 
+  bot.action(/^admin:goto:/, async (ctx) => {
+    if (!isAdmin(ctx.from.id)) {
+      await ctx.answerCbQuery('Недоступно');
+      return;
+    }
+    await ctx.answerCbQuery();
+    const screen = ctx.callbackQuery.data.replace('admin:goto:', '');
+    switch (screen) {
+      case 'welcome':
+        return showWelcome(ctx);
+      case 'intro_video':
+        return showIntroVideo(ctx);
+      case 'diagnostic':
+        return startDiagnosticFlow(ctx);
+      case 'consent':
+        return showConsent(ctx, 'decision');
+      case 'tariff': {
+        const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+        return showTariff(ctx, user);
+      }
+      case 'preparation':
+        return showPreparation(ctx, { isFirstProcedure: true, procedureType: 'anti_tobacco' });
+      case 'player_warning':
+        return showPlayerWarning(ctx, { procedureType: 'anti_tobacco' });
+      case 'post_proc_wait':
+        return showPostProcedureWait(ctx);
+      case 'support':
+        return showSupportRequest(ctx);
+      case 'main_menu':
+        return showMainMenu(ctx);
+      default:
+        return ctx.reply('Неизвестный экран.');
+    }
+  });
+
 };
 
 module.exports.handleGiftCommand = handleGiftCommand;
 module.exports.handleAdminPreviewCommand = handleAdminPreviewCommand;
+module.exports.handleAdminCommand = handleAdminCommand;

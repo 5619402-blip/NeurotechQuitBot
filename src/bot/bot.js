@@ -4,7 +4,7 @@ const { setLastBotMessageId } = require('../db/users');
 const registerStart = require('./handlers/start');
 const registerCallbacks = require('./handlers/callbacks');
 const registerAdmin = require('./handlers/admin');
-const { handleGiftCommand, handleAdminPreviewCommand } = registerAdmin;
+const { handleGiftCommand, handleAdminPreviewCommand, handleAdminCommand } = registerAdmin;
 
 const bot = new Telegraf(config.botToken);
 
@@ -38,6 +38,7 @@ bot.use(async (ctx, next) => {
   const first = text.trim().split(/\s+/)[0].toLowerCase();
   if (first === '/gift' || first === '/gift@neurotechquitbot') return handleGiftCommand(ctx);
   if (first === '/admin_preview' || first === '/admin_preview@neurotechquitbot') return handleAdminPreviewCommand(ctx);
+  if (first === '/admin' || first === '/admin@neurotechquitbot') return handleAdminCommand(ctx);
   return next();
 });
 
