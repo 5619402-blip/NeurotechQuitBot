@@ -158,10 +158,10 @@ const ADMIN_MENU_TEXT = 'Админ-меню NeuroTech Quit';
 
 function buildAdminMenuKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('Welcome', 'admin:goto:welcome'), Markup.button.callback('Intro video', 'admin:goto:intro_video')],
-    [Markup.button.callback('Диагностика', 'admin:goto:diagnostic'), Markup.button.callback('Consent / 18+', 'admin:goto:consent')],
-    [Markup.button.callback('Тариф', 'admin:goto:tariff'), Markup.button.callback('Подготовка (1я проц.)', 'admin:goto:preparation')],
-    [Markup.button.callback('Player warning', 'admin:goto:player_warning'), Markup.button.callback('PostProcedureWait', 'admin:goto:post_proc_wait')],
+    [Markup.button.callback('Стартовый экран', 'admin:goto:welcome'), Markup.button.callback('Видео о методе', 'admin:goto:intro_video')],
+    [Markup.button.callback('Диагностика', 'admin:goto:diagnostic'), Markup.button.callback('Согласие / 18+', 'admin:goto:consent')],
+    [Markup.button.callback('Тариф', 'admin:goto:tariff'), Markup.button.callback('Подготовка 1-й процедуры', 'admin:goto:preparation')],
+    [Markup.button.callback('Предупреждение перед плеером', 'admin:goto:player_warning'), Markup.button.callback('Экран 24–48 часов', 'admin:goto:post_proc_wait')],
     [Markup.button.callback('Поддержка', 'admin:goto:support'), Markup.button.callback('Главное меню', 'admin:goto:main_menu')],
   ]);
 }
