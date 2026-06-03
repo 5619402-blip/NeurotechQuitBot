@@ -7,8 +7,8 @@ const {
   expireReminder,
 } = require('../db/reminders');
 const { getUserById, setPaused } = require('../db/users');
-const { hasCompletedSessionForProcedure } = require('../db/sessions');
-const { REMINDER_TEXT, buildReminderKeyboard } = require('../bot/screens/reminderMessage');
+const { getProcedureById, hasCompletedSessionForProcedure } = require('../db/sessions');
+const { buildReminderText, buildReminderKeyboard } = require('../bot/screens/reminderMessage');
 
 let isRunning = false;
 
@@ -49,9 +49,14 @@ async function _sendDueReminders(bot) {
         continue;
       }
 
+      const procedure = reminder.procedure_id
+        ? await getProcedureById(reminder.procedure_id)
+        : null;
+      const procedureType = procedure?.procedure_type ?? null;
+
       await bot.telegram.sendMessage(
         user.telegram_id,
-        REMINDER_TEXT,
+        buildReminderText(procedureType),
         buildReminderKeyboard(reminder.id)
       );
       await markReminderSent(reminder.id);
