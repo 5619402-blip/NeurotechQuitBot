@@ -1196,7 +1196,7 @@ module.exports = (bot) => {
       awaitingSupportText.set(ctx.from.id, sessionId);
       return showSupportRequest(ctx);
     }
-    return showShortContinueOptions(ctx, value);
+    return showShortContinueOptions(ctx, sessionId, value);
   });
 
   bot.action('short_congrats:review', async (ctx) => {
@@ -1227,6 +1227,13 @@ module.exports = (bot) => {
   bot.action('short_congrats:menu', async (ctx) => {
     await ctx.answerCbQuery();
     await showMainMenu(ctx);
+  });
+
+  bot.action(/^short_result:support:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const sessionId = parseInt(ctx.callbackQuery.data.replace('short_result:support:', ''), 10);
+    awaitingSupportText.set(ctx.from.id, sessionId);
+    await showSupportRequest(ctx);
   });
 
   bot.action('short_result:alpha', async (ctx) => {

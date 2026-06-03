@@ -52,7 +52,7 @@ async function showShortCongrats(ctx) {
   await sendScreen(ctx, text, keyboard);
 }
 
-async function showShortContinueOptions(ctx, reason) {
+async function showShortContinueOptions(ctx, sessionId, reason) {
   const text = reason === 'smoked_after'
     ? 'Понял. Это не означает, что результат потерян. Важно спокойно продолжить работу и не ' +
       'превращать один эпизод в откат. Вы можете вернуться к протоколу, пройти поддерживающую ' +
@@ -63,7 +63,7 @@ async function showShortContinueOptions(ctx, reason) {
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('Мой доступ', 'my_access:show')],
     [Markup.button.callback('Альфа-процедура', 'short_result:alpha')],
-    [Markup.button.callback('Поддержка', 'my_access:support')],
+    [Markup.button.callback('Поддержка', `short_result:support:${sessionId}`)],
     [Markup.button.callback('Главное меню', 'my_access:menu')],
   ]);
   await sendScreen(ctx, text, keyboard);
