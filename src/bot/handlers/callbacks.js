@@ -776,14 +776,20 @@ module.exports = (bot) => {
     const session = await getSessionById(sessionId);
     if (!session || session.user_id !== user.id) return showMyAccess(ctx, user);
 
+    const isSingle = user.access_type === 'single_procedure';
+
     if (session.session_status !== 'started') {
-      return showProcedureInterrupted(ctx);
+      return isSingle ? showSingleProcedureInterrupted(ctx) : showProcedureInterrupted(ctx);
     }
 
     await interruptSession(sessionId);
     await setActiveUnfinishedProcedure(user.id, false);
     await updateUserStatus(ctx.from.id, 'procedure_interrupted');
-    await showProcedureInterrupted(ctx);
+    if (isSingle) {
+      await showSingleProcedureInterrupted(ctx);
+    } else {
+      await showProcedureInterrupted(ctx);
+    }
   });
 
   bot.action('procedure_interrupted:restart', async (ctx) => {
