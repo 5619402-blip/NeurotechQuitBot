@@ -45,6 +45,7 @@ const { showShortProcedureInfo } = require('../screens/shortProcedureInfo');
 const { showProtocolCycleComplete } = require('../screens/protocolCycleComplete');
 const { showProcedureLockedWait } = require('../screens/procedureLockedWait');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
+const { showShortPostQ1, showShortPostQ2, showShortPostQ3, showShortCongrats, showShortContinueOptions } = require('../screens/shortPostQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
 const { showNotSmokingResult } = require('../screens/notSmokingResult');
 const { showSupportRequest } = require('../screens/supportRequest');
@@ -946,6 +947,12 @@ module.exports = (bot) => {
   bot.action(/^postProcedure:next:/, async (ctx) => {
     await ctx.answerCbQuery();
     const sessionId = parseInt(ctx.callbackQuery.data.replace('postProcedure:next:', ''), 10);
+    const session = await getSessionById(sessionId);
+    const procedure = session?.procedure_id ? await getProcedureById(session.procedure_id) : null;
+    const procedureType = procedure?.procedure_type ?? null;
+    if (procedureType === 'short_quick_lever' || procedureType === 'short_anti_tobacco') {
+      return showShortPostQ1(ctx, sessionId);
+    }
     await showPostQ1(ctx, sessionId);
   });
 
@@ -1140,6 +1147,92 @@ module.exports = (bot) => {
     }
 
     return showMyAccess(ctx, user);
+  });
+
+  // ─── После процедуры: short flow Q1–Q3 (раздел 11.1) ────────────────────────
+
+  bot.action(/^short_post_q:1:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const parts = ctx.callbackQuery.data.split(':');
+    const value = parts[2];
+    const sessionId = parseInt(parts[3], 10);
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (!user?.id) return showMyAccess(ctx, user);
+    await upsertPostProcedureAnswer(user.id, sessionId, 'sq1', value);
+    await showShortPostQ2(ctx, sessionId);
+  });
+
+  bot.action(/^short_post_q:2:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const parts = ctx.callbackQuery.data.split(':');
+    const value = parts[2];
+    const sessionId = parseInt(parts[3], 10);
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (!user?.id) return showMyAccess(ctx, user);
+    await upsertPostProcedureAnswer(user.id, sessionId, 'sq2', value);
+    await showShortPostQ3(ctx, sessionId);
+  });
+
+  bot.action(/^short_post_q:3:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const parts = ctx.callbackQuery.data.split(':');
+    const value = parts[2];
+    const sessionId = parseInt(parts[3], 10);
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (!user?.id) return showMyAccess(ctx, user);
+    await upsertPostProcedureAnswer(user.id, sessionId, 'sq3', value);
+    if (value === 'no_craving') {
+      return showShortCongrats(ctx);
+    }
+    if (value === 'need_support') {
+      awaitingSupportText.set(ctx.from.id, sessionId);
+      return showSupportRequest(ctx);
+    }
+    return showShortContinueOptions(ctx, value);
+  });
+
+  bot.action('short_congrats:review', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showLeaveReview(ctx);
+  });
+
+  bot.action('short_congrats:share', async (ctx) => {
+    await ctx.answerCbQuery();
+    const username = ctx.botInfo?.username;
+    const shareUrl = username
+      ? `https://t.me/share/url?url=${encodeURIComponent(`https://t.me/${username}`)}&text=${encodeURIComponent('Попробуй NeuroTech Quit — авторский протокол помощи при отказе от никотина.')}`
+      : null;
+    const keyboard = shareUrl
+      ? Markup.inlineKeyboard([
+          [Markup.button.url('Отправить другу', shareUrl)],
+          [Markup.button.callback('Назад', 'short_congrats:menu')],
+        ])
+      : Markup.inlineKeyboard([[Markup.button.callback('Назад', 'short_congrats:menu')]]);
+    const text = 'Поделитесь NeuroTech Quit с другом — возможно, он тоже хочет бросить курить.';
+    try {
+      await ctx.editMessageText(text, keyboard);
+    } catch {
+      await ctx.reply(text, keyboard);
+    }
+  });
+
+  bot.action('short_congrats:menu', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showMainMenu(ctx);
+  });
+
+  bot.action('short_result:alpha', async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (!user?.id) return showMyAccess(ctx, user);
+    const ar = await getAccessRights(user.id);
+    if (!ar) return showMyAccess(ctx, user);
+    const alphaAvailable =
+      user.access_type === 'full_access' ||
+      (ar.available_alpha_sessions_count !== null &&
+        ar.available_alpha_sessions_count > ar.used_alpha_sessions_count);
+    if (!alphaAvailable) return showAlphaUnavailable(ctx);
+    return showPreparation(ctx, { isFirstProcedure: false, procedureType: 'alpha' });
   });
 
   // ─── Сессия приостановлена (раздел 13.1) ────────────────────────────────────
