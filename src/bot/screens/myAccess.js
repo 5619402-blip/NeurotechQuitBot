@@ -2,9 +2,11 @@ const { Markup } = require('telegraf');
 const { getAccessRights, getProtocolProgress } = require('../../db/access');
 
 const PROCEDURE_NAMES = {
-  anti_tobacco: 'Анти-табак',
-  quick_lever:  'Быстрый рычаг',
-  alpha:        'Альфа',
+  anti_tobacco:       'Анти-табак',
+  quick_lever:        'Быстрый рычаг',
+  alpha:              'Альфа',
+  short_quick_lever:  'Закрепление: Быстрый рычаг',
+  short_anti_tobacco: 'Закрепление: Антитабак',
 };
 
 const STATUS_LABELS = {
@@ -54,22 +56,69 @@ const bannerKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('Главное меню', 'my_access:menu')],
 ]);
 
+function formatUnlockDate(unlockAt) {
+  const m = new Date(new Date(unlockAt).getTime() + 3 * 60 * 60 * 1000);
+  const day   = String(m.getUTCDate()).padStart(2, '0');
+  const month = String(m.getUTCMonth() + 1).padStart(2, '0');
+  const year  = m.getUTCFullYear();
+  const hours = String(m.getUTCHours()).padStart(2, '0');
+  const mins  = String(m.getUTCMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year} в ${hours}:${mins} (МСК)`;
+}
+
+function formatTimeLeft(unlockAt) {
+  const msLeft = new Date(unlockAt) - Date.now();
+  if (msLeft <= 0) return '0 мин';
+  const totalMinutes = Math.ceil(msLeft / 60000);
+  const hours   = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} мин`;
+  if (minutes === 0) return `${hours} ч`;
+  return `${hours} ч ${minutes} мин`;
+}
+
+function isProtocolLocked(progress) {
+  if (!progress?.next_procedure_unlocks_at) return false;
+  return new Date(progress.next_procedure_unlocks_at) > new Date();
+}
+
 function nextProcedureName(progress) {
   const type = progress?.next_procedure_type ?? 'anti_tobacco';
   return PROCEDURE_NAMES[type] ?? 'Анти-табак';
 }
 
+function buildNextStepText(progress) {
+  const step = progress?.current_step_number ?? 0;
+  if (step >= 5) {
+    return (
+      'Основной цикл протокола завершён.\n' +
+      'Вы прошли все основные этапы NeuroTech Quit.'
+    );
+  }
+  if (isProtocolLocked(progress)) {
+    const name = nextProcedureName(progress);
+    const dateStr = formatUnlockDate(progress.next_procedure_unlocks_at);
+    const timeLeftStr = formatTimeLeft(progress.next_procedure_unlocks_at);
+    return (
+      `Следующий этап: ${name}\n\n` +
+      `Он откроется: ${dateStr}\n\n` +
+      `Осталось примерно: ${timeLeftStr}\n\n` +
+      'Это нужно, чтобы между этапами протокола прошло достаточно времени.'
+    );
+  }
+  return `Следующий этап доступен: ${nextProcedureName(progress)}`;
+}
+
 function buildFullAccessText(user, progress, ar) {
   const statusLabel = STATUS_LABELS[user.user_status] ?? user.user_status;
-  const procedureName = nextProcedureName(progress);
   return (
     'Мой доступ\n\n' +
     'У вас открыт полный доступ NeuroTech Quit.\n\n' +
     'Вы можете продолжать основной протокол, проходить дополнительные процедуры по состоянию ' +
     'и использовать Альфа-процедуру для поддержки состояния.\n\n' +
     `Текущий статус: ${statusLabel}\n` +
-    `Пройдено процедур: ${ar.used_main_procedures_count ?? 0}\n` +
-    `Следующая рекомендованная процедура: ${procedureName}`
+    `Пройдено процедур: ${ar.used_main_procedures_count ?? 0}\n\n` +
+    buildNextStepText(progress)
   );
 }
 
@@ -88,13 +137,19 @@ function buildSingleProcedureText(user, ar) {
   );
 }
 
-function buildFullAccessKeyboard() {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback('Продолжить протокол', 'my_access:continue_protocol')],
-    [Markup.button.callback('Альфа-процедура', 'my_access:alpha')],
-    [Markup.button.callback('Поддержка', 'my_access:support')],
-    [Markup.button.callback('Главное меню', 'my_access:menu')],
-  ]);
+function buildFullAccessKeyboard(progress) {
+  const step = progress?.current_step_number ?? 0;
+  const locked = isProtocolLocked(progress);
+  const showContinue = step < 5 && !locked;
+
+  const buttons = [];
+  if (showContinue) {
+    buttons.push([Markup.button.callback('Продолжить протокол', 'my_access:continue_protocol')]);
+  }
+  buttons.push([Markup.button.callback('Альфа-процедура', 'my_access:alpha')]);
+  buttons.push([Markup.button.callback('Поддержка', 'my_access:support')]);
+  buttons.push([Markup.button.callback('Главное меню', 'my_access:menu')]);
+  return Markup.inlineKeyboard(buttons);
 }
 
 function buildSingleProcedureKeyboard(ar) {
@@ -156,6 +211,17 @@ async function showMyAccess(ctx, user) {
     ? buildFullAccessText(user, progress, ar)
     : buildSingleProcedureText(user, ar);
 
+  if (isFullAccess) {
+    const faKeyboard = buildFullAccessKeyboard(progress);
+    if (status === 'protocol_paused') {
+      return sendScreen(ctx, baseText + BANNER_PAUSED, faKeyboard);
+    }
+    if (status === 'followup_pending') {
+      return sendScreen(ctx, baseText + BANNER_FOLLOWUP, faKeyboard);
+    }
+    return sendScreen(ctx, baseText, faKeyboard);
+  }
+
   if (status === 'protocol_paused') {
     return sendScreen(ctx, baseText + BANNER_PAUSED, bannerKeyboard);
   }
@@ -163,12 +229,9 @@ async function showMyAccess(ctx, user) {
     return sendScreen(ctx, baseText + BANNER_COMPLETED, bannerKeyboard);
   }
   if (status === 'followup_pending') {
-    const keyboard = isFullAccess ? buildFullAccessKeyboard() : buildSingleProcedureKeyboard(ar);
-    return sendScreen(ctx, baseText + BANNER_FOLLOWUP, keyboard);
+    return sendScreen(ctx, baseText + BANNER_FOLLOWUP, buildSingleProcedureKeyboard(ar));
   }
-
-  const keyboard = isFullAccess ? buildFullAccessKeyboard() : buildSingleProcedureKeyboard(ar);
-  return sendScreen(ctx, baseText, keyboard);
+  return sendScreen(ctx, baseText, buildSingleProcedureKeyboard(ar));
 }
 
 module.exports = { showMyAccess };
