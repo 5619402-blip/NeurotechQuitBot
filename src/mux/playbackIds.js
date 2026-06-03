@@ -2,9 +2,11 @@ const config = require('../config');
 
 function getPlaybackIdMap() {
   return {
-    anti_tobacco: config.mux.antiTobaccoPlaybackId,
-    quick_lever:  config.mux.quickLeverPlaybackId,
-    alpha:        config.mux.alphaPlaybackId,
+    anti_tobacco:       config.mux.antiTobaccoPlaybackId,
+    quick_lever:        config.mux.quickLeverPlaybackId,
+    alpha:              config.mux.alphaPlaybackId,
+    short_quick_lever:  config.mux.shortQuickLeverPlaybackId,
+    short_anti_tobacco: config.mux.shortAntiTobaccoPlaybackId,
   };
 }
 

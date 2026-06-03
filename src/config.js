@@ -30,6 +30,8 @@ module.exports = {
     antiTobaccoPlaybackId: readEnv('MUX_ANTI_TOBACCO_PLAYBACK_ID'),
     quickLeverPlaybackId: readEnv('MUX_QUICK_LEVER_PLAYBACK_ID'),
     alphaPlaybackId: readEnv('MUX_ALPHA_PLAYBACK_ID'),
+    shortQuickLeverPlaybackId: readEnv('MUX_SHORT_QUICK_LEVER_PLAYBACK_ID'),
+    shortAntiTobaccoPlaybackId: readEnv('MUX_SHORT_ANTI_TOBACCO_PLAYBACK_ID'),
   },
   payment: {
     provider: readEnv('PAYMENT_PROVIDER'),

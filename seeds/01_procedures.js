@@ -26,5 +26,19 @@ exports.seed = async (knex) => {
       is_main_protocol: false,
       is_active: true,
     },
+    {
+      procedure_name: 'Укороченный Быстрый рычаг',
+      procedure_type: 'short_quick_lever',
+      sort_order: 4,
+      is_main_protocol: true,
+      is_active: true,
+    },
+    {
+      procedure_name: 'Укороченный Антитабак',
+      procedure_type: 'short_anti_tobacco',
+      sort_order: 5,
+      is_main_protocol: true,
+      is_active: true,
+    },
   ]);
 };
