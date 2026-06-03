@@ -1066,12 +1066,22 @@ module.exports = (bot) => {
         getSessionById(sessionId),
       ]);
 
-      if (session) {
+      if (session && user.access_type === 'full_access') {
         const procedure = await getProcedureById(session.procedure_id);
         if (procedure && procedure.procedure_type !== 'alpha') {
-          const nextType = getNextProcedureType(progress?.current_step_number ?? 0);
-          const nextProcedure = await getProcedureByType(nextType);
-          if (nextProcedure) await createReminder(user.id, nextProcedure.id, sessionId);
+          const currentStep = progress?.current_step_number ?? 0;
+          const completedStep = currentStep - 1;
+          const intervalMs = getStepIntervalAfterMs(completedStep);
+          if (intervalMs !== null && progress?.next_procedure_unlocks_at) {
+            const nextProcedure = await getProcedureByType(getNextProcedureType(currentStep));
+            if (nextProcedure) {
+              const unlockAt = new Date(progress.next_procedure_unlocks_at);
+              const reminderType = intervalMs === 24 * 60 * 60 * 1000
+                ? 'next_procedure_24h'
+                : 'next_procedure_48h';
+              await createReminder(user.id, nextProcedure.id, sessionId, unlockAt, reminderType);
+            }
+          }
         }
       }
 

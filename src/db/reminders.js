@@ -1,20 +1,23 @@
 const db = require('./connection');
 
-async function createReminder(userId, procedureId, relatedSessionId) {
+async function createReminder(userId, procedureId, relatedSessionId, scheduledAt = null, reminderType = null) {
   try {
     const existing = await db('reminders')
-      .where({ related_session_id: relatedSessionId, reminder_type: 'next_procedure_48h' })
+      .where({ related_session_id: relatedSessionId })
+      .whereIn('reminder_status', ['scheduled', 'sent'])
       .first();
     if (existing) return existing;
 
-    const scheduledAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const effectiveScheduledAt = scheduledAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const effectiveType = reminderType ?? 'next_procedure_48h';
+
     const [row] = await db('reminders')
       .insert({
         user_id: userId,
         procedure_id: procedureId,
         related_session_id: relatedSessionId,
-        reminder_type: 'next_procedure_48h',
-        scheduled_at: scheduledAt,
+        reminder_type: effectiveType,
+        scheduled_at: effectiveScheduledAt,
         reminder_count: 0,
         reminder_status: 'scheduled',
       })
