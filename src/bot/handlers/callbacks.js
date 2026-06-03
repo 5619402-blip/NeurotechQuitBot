@@ -998,6 +998,34 @@ module.exports = (bot) => {
     if (ar?.access_type === 'single_procedure') {
       return showSingleProcedureCompleted(ctx);
     }
+    if (user.access_type === 'full_access') {
+      const [pq2Session, progress] = await Promise.all([
+        getSessionById(sessionId),
+        getProtocolProgress(user.id),
+      ]);
+      const pq2Procedure = pq2Session?.procedure_id
+        ? await getProcedureById(pq2Session.procedure_id)
+        : null;
+      if (pq2Procedure && pq2Procedure.procedure_type !== 'alpha' && progress) {
+        const completedStep = (progress.current_step_number ?? 0) - 1;
+        const intervalMs = getStepIntervalAfterMs(completedStep);
+        if (intervalMs !== null && progress.next_procedure_unlocks_at) {
+          const nextProcedure = await getProcedureByType(progress.next_procedure_type);
+          if (nextProcedure) {
+            const reminderType = intervalMs === 24 * 60 * 60 * 1000
+              ? 'next_procedure_24h'
+              : 'next_procedure_48h';
+            await createReminder(
+              user.id,
+              nextProcedure.id,
+              sessionId,
+              new Date(progress.next_procedure_unlocks_at),
+              reminderType
+            );
+          }
+        }
+      }
+    }
     await showPostProcedureWait(ctx);
   });
 
@@ -1181,12 +1209,38 @@ module.exports = (bot) => {
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'sq3', value);
+
+    const sq3Session = await getSessionById(sessionId);
+    const sq3Procedure = sq3Session?.procedure_id
+      ? await getProcedureById(sq3Session.procedure_id)
+      : null;
+    const sq3ProcedureType = sq3Procedure?.procedure_type ?? null;
+
+    if (sq3ProcedureType === 'short_quick_lever') {
+      const sq3Progress = await getProtocolProgress(user.id);
+      if (sq3Progress) {
+        const completedStep = (sq3Progress.current_step_number ?? 0) - 1;
+        const intervalMs = getStepIntervalAfterMs(completedStep);
+        if (intervalMs !== null && sq3Progress.next_procedure_unlocks_at) {
+          const nextProcedure = await getProcedureByType(sq3Progress.next_procedure_type);
+          if (nextProcedure) {
+            const reminderType = intervalMs === 24 * 60 * 60 * 1000
+              ? 'next_procedure_24h'
+              : 'next_procedure_48h';
+            await createReminder(
+              user.id,
+              nextProcedure.id,
+              sessionId,
+              new Date(sq3Progress.next_procedure_unlocks_at),
+              reminderType
+            );
+          }
+        }
+      }
+    }
+
     if (value === 'no_craving') {
-      const sq3Session = await getSessionById(sessionId);
-      const sq3Procedure = sq3Session?.procedure_id
-        ? await getProcedureById(sq3Session.procedure_id)
-        : null;
-      if (sq3Procedure?.procedure_type === 'short_anti_tobacco') {
+      if (sq3ProcedureType === 'short_anti_tobacco') {
         await setMainProtocolCompleted(user.id);
         await updateUserStatus(ctx.from.id, 'protocol_completed');
       }
