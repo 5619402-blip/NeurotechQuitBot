@@ -30,7 +30,7 @@ const { getUserByTelegramId, updateUserStatus, updateUserAfterPayment, setActive
 const { processTestPayment } = require('../../db/payments');
 const { showMyAccess } = require('../screens/myAccess');
 const { showMainMenu } = require('../screens/mainMenu');
-const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress, getNextProcedureType } = require('../../db/access');
+const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress, getNextProcedureType, getStepIntervalAfterMs } = require('../../db/access');
 const { showPreparation, showAlphaUnavailable, showHelperText } = require('../screens/preparation');
 const { showRulesVideo, showRulesVideoWatch } = require('../screens/rulesVideo');
 const { showPlayerWarning } = require('../screens/playerWarning');
@@ -779,7 +779,10 @@ module.exports = (bot) => {
     } else {
       await incrementUsedMain(user.id);
       const progress = await getProtocolProgress(user.id);
-      await upsertProtocolProgress(user.id, procedureType, progress?.current_step_number ?? 0);
+      const completedStep = progress?.current_step_number ?? 0;
+      const intervalMs = getStepIntervalAfterMs(completedStep);
+      const unlockAt = intervalMs !== null ? new Date(Date.now() + intervalMs) : null;
+      await upsertProtocolProgress(user.id, procedureType, completedStep, unlockAt);
     }
 
     await setActiveUnfinishedProcedure(user.id, false);

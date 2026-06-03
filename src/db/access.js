@@ -52,23 +52,39 @@ function getNextProcedureType(step) {
   return PROTOCOL_STEPS[step] ?? 'anti_tobacco';
 }
 
-async function upsertProtocolProgress(userId, completedType, currentStepNumber) {
+const STEP_INTERVALS_AFTER_MS = {
+  0: 24 * 60 * 60 * 1000,
+  1: 48 * 60 * 60 * 1000,
+  2: 48 * 60 * 60 * 1000,
+  3: 48 * 60 * 60 * 1000,
+  4: null,
+};
+
+function getStepIntervalAfterMs(completedStep) {
+  const interval = STEP_INTERVALS_AFTER_MS[completedStep];
+  return (interval === undefined) ? null : interval;
+}
+
+async function upsertProtocolProgress(userId, completedType, currentStepNumber, unlockAt = null) {
   try {
     const newStep = currentStepNumber + 1;
     const newNextType = getNextProcedureType(newStep);
+    const row = {
+      user_id: userId,
+      current_step_number: newStep,
+      next_procedure_type: newNextType,
+      last_completed_procedure_type: completedType,
+      next_procedure_unlocks_at: unlockAt,
+      updated_at: db.fn.now(),
+    };
     await db('protocol_progress')
-      .insert({
-        user_id: userId,
-        current_step_number: newStep,
-        next_procedure_type: newNextType,
-        last_completed_procedure_type: completedType,
-        updated_at: db.fn.now(),
-      })
+      .insert(row)
       .onConflict('user_id')
       .merge({
         current_step_number: newStep,
         next_procedure_type: newNextType,
         last_completed_procedure_type: completedType,
+        next_procedure_unlocks_at: unlockAt,
         updated_at: db.fn.now(),
       });
   } catch (err) {
@@ -83,4 +99,5 @@ module.exports = {
   incrementUsedAlpha,
   upsertProtocolProgress,
   getNextProcedureType,
+  getStepIntervalAfterMs,
 };
