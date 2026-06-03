@@ -65,6 +65,16 @@ function getStepIntervalAfterMs(completedStep) {
   return (interval === undefined) ? null : interval;
 }
 
+async function setMainProtocolCompleted(userId) {
+  try {
+    await db('protocol_progress')
+      .where({ user_id: userId })
+      .update({ main_protocol_completed: true, updated_at: db.fn.now() });
+  } catch (err) {
+    console.error('[db] setMainProtocolCompleted:', err.message);
+  }
+}
+
 async function upsertProtocolProgress(userId, completedType, currentStepNumber, unlockAt = null) {
   try {
     const newStep = currentStepNumber + 1;
@@ -98,6 +108,7 @@ module.exports = {
   incrementUsedMain,
   incrementUsedAlpha,
   upsertProtocolProgress,
+  setMainProtocolCompleted,
   getNextProcedureType,
   getStepIntervalAfterMs,
 };

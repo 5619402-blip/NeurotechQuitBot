@@ -30,7 +30,7 @@ const { getUserByTelegramId, updateUserStatus, updateUserAfterPayment, setActive
 const { processTestPayment } = require('../../db/payments');
 const { showMyAccess } = require('../screens/myAccess');
 const { showMainMenu } = require('../screens/mainMenu');
-const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress, getNextProcedureType, getStepIntervalAfterMs } = require('../../db/access');
+const { getAccessRights, getProtocolProgress, incrementUsedMain, incrementUsedAlpha, upsertProtocolProgress, setMainProtocolCompleted, getNextProcedureType, getStepIntervalAfterMs } = require('../../db/access');
 const { showPreparation, showAlphaUnavailable, showHelperText } = require('../screens/preparation');
 const { showRulesVideo, showRulesVideoWatch } = require('../screens/rulesVideo');
 const { showPlayerWarning } = require('../screens/playerWarning');
@@ -1182,6 +1182,14 @@ module.exports = (bot) => {
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'sq3', value);
     if (value === 'no_craving') {
+      const sq3Session = await getSessionById(sessionId);
+      const sq3Procedure = sq3Session?.procedure_id
+        ? await getProcedureById(sq3Session.procedure_id)
+        : null;
+      if (sq3Procedure?.procedure_type === 'short_anti_tobacco') {
+        await setMainProtocolCompleted(user.id);
+        await updateUserStatus(ctx.from.id, 'protocol_completed');
+      }
       return showShortCongrats(ctx);
     }
     if (value === 'need_support') {
