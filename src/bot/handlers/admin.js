@@ -40,13 +40,53 @@ function isAdmin(telegramId) {
   return config.adminTelegramIds.includes(String(telegramId));
 }
 
-const PREVIEW_PROCEDURE_TYPES = ['anti_tobacco', 'quick_lever', 'alpha'];
+const PREVIEW_PROCEDURE_TYPES = ['anti_tobacco', 'quick_lever', 'alpha', 'short_quick_lever', 'short_anti_tobacco'];
 
 const PREVIEW_PROCEDURE_LABELS = {
-  anti_tobacco: 'Антитабак',
-  quick_lever:  'Быстрый рычаг',
-  alpha:        'Альфа',
+  anti_tobacco:       'Антитабак',
+  quick_lever:        'Быстрый рычаг',
+  alpha:              'Альфа',
+  short_quick_lever:  'Укороченный Быстрый рычаг',
+  short_anti_tobacco: 'Укороченный Антитабак',
 };
+
+async function sendPreviewLink(ctx, procedureType) {
+  let adminUser;
+  try {
+    adminUser = await getUserByTelegramId(ctx.from.id);
+  } catch (err) {
+    console.error('[admin] preview getUserByTelegramId:', err.message);
+    return ctx.reply('Ошибка при поиске вашего аккаунта.');
+  }
+  if (!adminUser?.id) {
+    return ctx.reply('Ваш аккаунт не найден в базе данных бота. Напишите /start сначала.');
+  }
+
+  let tokenRow;
+  try {
+    tokenRow = await createAdminPreviewToken(adminUser.id, procedureType);
+  } catch (err) {
+    console.error('[admin] preview createAdminPreviewToken:', err.message);
+    return ctx.reply('Ошибка при создании preview-токена. Попробуйте снова.');
+  }
+
+  const tunnelUrl = publicUrl.get();
+  if (!tunnelUrl) {
+    return ctx.reply('Ошибка: tunnel URL не готов. Попробуйте позже.');
+  }
+
+  const link = `${tunnelUrl}/admin-preview/${tokenRow.token}`;
+  const label = PREVIEW_PROCEDURE_LABELS[procedureType];
+  const expiresAt = new Date(tokenRow.expires_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+  await ctx.reply(
+    `Админ-preview ссылка для процедуры: ${label}.\n` +
+    `Ссылка действует 2 часа, до 10 открытий.\n` +
+    `Доступ пользователя не списывается.\n\n` +
+    `Действует до: ${expiresAt} (МСК)\n\n` +
+    link
+  );
+}
 
 async function handleAdminPreviewCommand(ctx) {
   if (!isAdmin(ctx.from.id)) return;
@@ -57,46 +97,12 @@ async function handleAdminPreviewCommand(ctx) {
 
   if (!typeInput || !PREVIEW_PROCEDURE_TYPES.includes(typeInput)) {
     return ctx.reply(
-      'Укажите тип процедуры. Допустимые значения: anti_tobacco, quick_lever, alpha\n\n' +
-      'Пример: /admin_preview quick_lever'
+      'Укажите тип процедуры. Допустимые значения: anti_tobacco, quick_lever, alpha, short_quick_lever, short_anti_tobacco\n\n' +
+      'Пример: /admin_preview short_quick_lever'
     );
   }
 
-  let adminUser;
-  try {
-    adminUser = await getUserByTelegramId(ctx.from.id);
-  } catch (err) {
-    console.error('[admin] /admin_preview getUserByTelegramId:', err.message);
-    return ctx.reply('Ошибка при поиске вашего аккаунта.');
-  }
-  if (!adminUser?.id) {
-    return ctx.reply('Ваш аккаунт не найден в базе данных бота. Напишите /start сначала.');
-  }
-
-  let tokenRow;
-  try {
-    tokenRow = await createAdminPreviewToken(adminUser.id, typeInput);
-  } catch (err) {
-    console.error('[admin] /admin_preview createAdminPreviewToken:', err.message);
-    return ctx.reply('Ошибка при создании preview-токена. Попробуйте снова.');
-  }
-
-  const tunnelUrl = publicUrl.get();
-  if (!tunnelUrl) {
-    return ctx.reply('Ошибка: tunnel URL не готов. Попробуйте позже.');
-  }
-
-  const link = `${tunnelUrl}/admin-preview/${tokenRow.token}`;
-  const label = PREVIEW_PROCEDURE_LABELS[typeInput];
-  const expiresAt = new Date(tokenRow.expires_at).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
-
-  await ctx.reply(
-    `Админ-preview ссылка для процедуры: ${label}.\n` +
-    `Ссылка действует 2 часа, до 10 открытий.\n` +
-    `Доступ пользователя не списывается.\n\n` +
-    `Действует до: ${expiresAt} (МСК)\n\n` +
-    link
-  );
+  await sendPreviewLink(ctx, typeInput);
 }
 
 async function handleGiftCommand(ctx) {
@@ -163,6 +169,7 @@ function buildAdminMenuKeyboard() {
     [Markup.button.callback('Тариф', 'admin:goto:tariff'), Markup.button.callback('Подготовка 1-й процедуры', 'admin:goto:preparation')],
     [Markup.button.callback('Предупреждение перед плеером', 'admin:goto:player_warning'), Markup.button.callback('Экран 24–48 часов', 'admin:goto:post_proc_wait')],
     [Markup.button.callback('Поддержка', 'admin:goto:support'), Markup.button.callback('Главное меню', 'admin:goto:main_menu')],
+    [Markup.button.callback('Short Быстрый рычаг', 'admin:preview:short_quick_lever'), Markup.button.callback('Short Антитабак', 'admin:preview:short_anti_tobacco')],
   ]);
 }
 
@@ -234,6 +241,19 @@ module.exports = (bot) => {
       console.error('[admin] review_reject:', e.message);
       await ctx.reply('Ошибка при обновлении отзыва.');
     }
+  });
+
+  bot.action(/^admin:preview:/, async (ctx) => {
+    if (!isAdmin(ctx.from.id)) {
+      await ctx.answerCbQuery('Недоступно');
+      return;
+    }
+    await ctx.answerCbQuery();
+    const procedureType = ctx.callbackQuery.data.replace('admin:preview:', '');
+    if (!PREVIEW_PROCEDURE_TYPES.includes(procedureType)) {
+      return ctx.reply('Неизвестный тип процедуры.');
+    }
+    await sendPreviewLink(ctx, procedureType);
   });
 
   bot.action(/^admin:goto:/, async (ctx) => {
