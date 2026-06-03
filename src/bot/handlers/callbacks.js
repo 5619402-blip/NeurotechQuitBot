@@ -42,6 +42,7 @@ const { showPostProcedureWait } = require('../screens/postProcedureWait');
 const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
 const { showSingleProcedureInterrupted } = require('../screens/singleProcedureInterrupted');
 const { showShortProcedureInfo } = require('../screens/shortProcedureInfo');
+const { showProtocolCycleComplete } = require('../screens/protocolCycleComplete');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
 const { showNotSmokingResult } = require('../screens/notSmokingResult');
@@ -60,6 +61,14 @@ const { createUserReview } = require('../../db/userReviews');
 
 const awaitingSupportText = new Map();
 const awaitingReviewText = new Map();
+
+async function showNextStep(ctx, step, procedureType, isFirstProcedure) {
+  if (step >= 5) return showProtocolCycleComplete(ctx);
+  if (procedureType === 'short_quick_lever' || procedureType === 'short_anti_tobacco') {
+    return showShortProcedureInfo(ctx, procedureType);
+  }
+  return showPreparation(ctx, { isFirstProcedure, procedureType });
+}
 
 module.exports = (bot) => {
 
@@ -486,11 +495,11 @@ module.exports = (bot) => {
     const isFirstProcedure = step === 0;
 
     if (user.access_type === 'full_access') {
-      return showPreparation(ctx, { isFirstProcedure, procedureType: nextType });
+      return showNextStep(ctx, step, nextType, isFirstProcedure);
     }
 
     if (ar.paid_main_procedures_count > ar.used_main_procedures_count) {
-      return showPreparation(ctx, { isFirstProcedure, procedureType: nextType });
+      return showNextStep(ctx, step, nextType, isFirstProcedure);
     }
 
     return showTariff(ctx, user);
@@ -627,11 +636,11 @@ module.exports = (bot) => {
     const isFirstProcedure = step === 0;
 
     if (user.access_type === 'full_access') {
-      return showPreparation(ctx, { isFirstProcedure, procedureType: nextType });
+      return showNextStep(ctx, step, nextType, isFirstProcedure);
     }
 
     if (ar.paid_main_procedures_count > ar.used_main_procedures_count) {
-      return showPreparation(ctx, { isFirstProcedure, procedureType: nextType });
+      return showNextStep(ctx, step, nextType, isFirstProcedure);
     }
 
     return showTariff(ctx, user);
@@ -824,7 +833,7 @@ module.exports = (bot) => {
     const step = progress?.current_step_number ?? 0;
     const procedureType = progress?.next_procedure_type ?? getNextProcedureType(step);
     const isFirstProcedure = step === 0;
-    await showPreparation(ctx, { isFirstProcedure, procedureType });
+    await showNextStep(ctx, step, procedureType, isFirstProcedure);
   });
 
   bot.action('procedure_interrupted:later', async (ctx) => {
@@ -876,6 +885,17 @@ module.exports = (bot) => {
   });
 
   // ─── Главное меню (раздел 10.3) ─────────────────────────────────────────────
+
+  bot.action('protocol_cycle_complete:menu', async (ctx) => {
+    await ctx.answerCbQuery();
+    await showMainMenu(ctx);
+  });
+
+  bot.action('protocol_cycle_complete:access', async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    await showMyAccess(ctx, user);
+  });
 
   bot.action('main_menu:my_access', async (ctx) => {
     await ctx.answerCbQuery();
@@ -1049,10 +1069,10 @@ module.exports = (bot) => {
       const step = progress?.current_step_number ?? 0;
       const nextProcedureType = getNextProcedureType(step);
       if (user.access_type === 'full_access') {
-        return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
+        return showNextStep(ctx, step, nextProcedureType, false);
       }
       if (ar.paid_main_procedures_count > ar.used_main_procedures_count) {
-        return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
+        return showNextStep(ctx, step, nextProcedureType, false);
       }
       return showTariff(ctx, user);
     }
@@ -1149,15 +1169,16 @@ module.exports = (bot) => {
     ]);
     if (!ar) return showTariff(ctx, user);
 
+    const step = progress?.current_step_number ?? 0;
     const procedure = reminder.procedure_id ? await getProcedureById(reminder.procedure_id) : null;
-    const procedureType = procedure?.procedure_type ?? getNextProcedureType(progress?.current_step_number ?? 0);
+    const procedureType = procedure?.procedure_type ?? getNextProcedureType(step);
 
     const hasAccess =
       user.access_type === 'full_access' ||
       ar.paid_main_procedures_count > ar.used_main_procedures_count;
 
     if (!hasAccess) return showTariff(ctx, user);
-    return showPreparation(ctx, { isFirstProcedure: false, procedureType });
+    return showNextStep(ctx, step, procedureType, false);
   });
 
   bot.action(/^reminder:not_smoking:/, async (ctx) => {
@@ -1289,7 +1310,7 @@ module.exports = (bot) => {
       const step = progress?.current_step_number ?? 0;
       const nextProcedureType = getNextProcedureType(step);
       if (user.access_type === 'full_access' || ar.paid_main_procedures_count > ar.used_main_procedures_count) {
-        return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
+        return showNextStep(ctx, step, nextProcedureType, false);
       }
       return showTariff(ctx, user);
     }
@@ -1444,7 +1465,7 @@ module.exports = (bot) => {
     const step = progress?.current_step_number ?? 0;
     const nextProcedureType = getNextProcedureType(step);
     if (user.access_type === 'full_access' || ar.paid_main_procedures_count > ar.used_main_procedures_count) {
-      return showPreparation(ctx, { isFirstProcedure: false, procedureType: nextProcedureType });
+      return showNextStep(ctx, step, nextProcedureType, false);
     }
     return showTariff(ctx, user);
   });

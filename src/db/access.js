@@ -40,11 +40,16 @@ async function incrementUsedAlpha(userId) {
   }
 }
 
-// Порядок протокола: шаг 0 — всегда anti_tobacco, далее чередование
-// anti_tobacco → quick_lever → anti_tobacco → quick_lever → ...
+const PROTOCOL_STEPS = {
+  0: 'anti_tobacco',
+  1: 'quick_lever',
+  2: 'anti_tobacco',
+  3: 'short_quick_lever',
+  4: 'short_anti_tobacco',
+};
+
 function getNextProcedureType(step) {
-  if (step === 0) return 'anti_tobacco';
-  return step % 2 === 0 ? 'anti_tobacco' : 'quick_lever';
+  return PROTOCOL_STEPS[step] ?? 'anti_tobacco';
 }
 
 async function upsertProtocolProgress(userId, completedType, currentStepNumber) {
