@@ -1,9 +1,11 @@
 const { Markup } = require('telegraf');
 
 const PROCEDURE_NAMES = {
-  anti_tobacco: 'Анти-табак',
-  quick_lever:  'Быстрый рычаг',
-  alpha:        'Альфа-процедура',
+  anti_tobacco:       'Анти-табак',
+  quick_lever:        'Быстрый рычаг',
+  alpha:              'Альфа-процедура',
+  short_quick_lever:  'Закрепление: Быстрый рычаг',
+  short_anti_tobacco: 'Закрепление: Антитабак',
 };
 
 const ALPHA_UNAVAILABLE_TEXT =

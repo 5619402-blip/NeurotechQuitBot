@@ -41,6 +41,7 @@ const { showPostProcedure } = require('../screens/postProcedure');
 const { showPostProcedureWait } = require('../screens/postProcedureWait');
 const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
 const { showSingleProcedureInterrupted } = require('../screens/singleProcedureInterrupted');
+const { showShortProcedureInfo } = require('../screens/shortProcedureInfo');
 const { showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6, showPostQComplete } = require('../screens/postQ');
 const { showSessionPaused } = require('../screens/sessionPaused');
 const { showNotSmokingResult } = require('../screens/notSmokingResult');
@@ -568,6 +569,18 @@ module.exports = (bot) => {
     await ctx.answerCbQuery();
     const procedureType = ctx.callbackQuery.data.replace('preparation:need_next:', '');
     await showHelperText(ctx, { procedureType, isFirstProcedure: false });
+  });
+
+  bot.action(/^short_procedure_info:continue:/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const procedureType = ctx.callbackQuery.data.replace('short_procedure_info:continue:', '');
+    await showPreparation(ctx, { isFirstProcedure: false, procedureType });
+  });
+
+  bot.action('short_procedure_info:back', async (ctx) => {
+    await ctx.answerCbQuery();
+    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    await showMyAccess(ctx, user);
   });
 
   bot.action('preparation:back', async (ctx) => {
