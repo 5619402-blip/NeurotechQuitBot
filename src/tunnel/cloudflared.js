@@ -48,21 +48,31 @@ async function startTunnel() {
   if (token) {
     // Named tunnel — публичный URL задаётся через BOTHOST_API_URL
     const namedUrl = process.env.BOTHOST_API_URL;
-    if (!namedUrl) throw new Error('[cloudflared] CLOUDFLARE_TUNNEL_TOKEN задан, но BOTHOST_API_URL не задан');
-    console.log('[cloudflared] starting named tunnel → ' + namedUrl);
+    if (!namedUrl) throw new Error('[tunnel] CLOUDFLARE_TUNNEL_TOKEN задан, но BOTHOST_API_URL не задан');
+    console.log('[tunnel] starting cloudflared');
     const proc = spawn(BINARY, ['tunnel', 'run', '--token', token], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    console.log('[tunnel] process spawned pid=' + proc.pid);
     proc.stdout.on('data', function (d) {
-      const line = d.toString().trim();
-      if (line) console.log('[cloudflared]', line);
+      d.toString().split('\n').forEach(function (line) {
+        if (line.trim()) console.log('[tunnel] stdout:', line.trim());
+      });
     });
     proc.stderr.on('data', function (d) {
-      const line = d.toString().trim();
-      if (line) console.log('[cloudflared]', line);
+      d.toString().split('\n').forEach(function (line) {
+        if (line.trim()) console.log('[tunnel] stderr:', line.trim());
+      });
     });
-    proc.on('error', function (err) { console.error('[cloudflared] spawn error:', err.message); });
-    proc.on('close', function (code) { console.log('[cloudflared] exited code=' + code); });
+    proc.on('error', function (err) {
+      console.error('[tunnel] error:', err.message);
+    });
+    proc.on('exit', function (code, signal) {
+      console.log('[tunnel] exited code=' + code + ' signal=' + signal);
+    });
+    proc.on('close', function (code, signal) {
+      console.log('[tunnel] closed code=' + code + ' signal=' + signal);
+    });
     return namedUrl;
   }
 

@@ -35,7 +35,7 @@ async function main() {
     console.log('[main] tunnel ready:', tunnelUrl);
   } catch (err) {
     console.error('[main] tunnel error:', err.message);
-    process.exit(1);
+    console.error('[main] bot and cron continue without tunnel');
   }
 }
 
