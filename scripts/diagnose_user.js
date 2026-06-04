@@ -68,8 +68,31 @@ async function run() {
     row('updated_at', pp.updated_at);
   }
 
-  // ── 4. procedure_sessions ─────────────────────────
-  sep('4. PROCEDURE_SESSIONS (последние 5)');
+  // ── 4. reminders ─────────────────────────────────
+  sep('4. REMINDERS');
+  const reminders = await db('reminders')
+    .where({ user_id: userId })
+    .orderBy('id', 'desc');
+
+  if (!reminders.length) {
+    console.log('  Напоминаний нет.');
+  } else {
+    reminders.forEach((r, i) => {
+      console.log(`  [${i}] id=${r.id}`);
+      row('    reminder_type', r.reminder_type);
+      row('    reminder_status', r.reminder_status);
+      row('    procedure_id', r.procedure_id);
+      row('    related_session_id', r.related_session_id);
+      row('    scheduled_at', r.scheduled_at);
+      row('    sent_at', r.sent_at);
+      row('    reminder_count', r.reminder_count);
+      row('    created_at', r.created_at);
+      row('    updated_at', r.updated_at);
+    });
+  }
+
+  // ── 5. procedure_sessions ─────────────────────────
+  sep('5. PROCEDURE_SESSIONS (последние 5)');
   const sessions = await db('procedure_sessions as ps')
     .join('procedures as p', 'p.id', 'ps.procedure_id')
     .where('ps.user_id', userId)
@@ -96,8 +119,8 @@ async function run() {
     });
   }
 
-  // ── 5. player_tokens ──────────────────────────────
-  sep('5. PLAYER_TOKENS (последние 5)');
+  // ── 6. player_tokens ──────────────────────────────
+  sep('6. PLAYER_TOKENS (последние 5)');
   const tokens = await db('player_tokens')
     .where({ user_id: userId })
     .orderBy('created_at', 'desc')
