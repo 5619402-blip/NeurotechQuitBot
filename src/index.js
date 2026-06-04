@@ -20,8 +20,9 @@ async function main() {
   startPlayerServer();
 
   console.log('[startup] calling bot.launch()');
-  await bot.launch();
-  console.log('[startup] bot.launch() ok');
+  bot.launch()
+    .then(() => console.log('[startup] bot.launch() ok'))
+    .catch(err => console.error('[startup] bot.launch() error:', err.message));
 
   if (config.cronEnabled) {
     console.log('[startup] cronEnabled=true, starting cron');
