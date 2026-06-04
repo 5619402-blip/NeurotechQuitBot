@@ -40,9 +40,10 @@ async function getReminderById(id) {
 
 async function getDueReminders() {
   try {
+    const now = Date.now();
     return await db('reminders')
       .where({ reminder_status: 'scheduled' })
-      .where('scheduled_at', '<=', db.fn.now())
+      .where('scheduled_at', '<=', now)
       .select('*');
   } catch (err) {
     console.error('[db] getDueReminders:', err.message);

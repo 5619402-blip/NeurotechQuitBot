@@ -17,7 +17,7 @@ module.exports = {
     ...(readEnv('ADMIN_TELEGRAM_IDS') || '').split(',').map(id => id.trim()).filter(Boolean),
   ])],
   playerBaseUrl: readEnv('PLAYER_BASE_URL'),
-  cronEnabled: readEnv('CRON_ENABLED') === 'true',
+  cronEnabled: readEnv('CRON_ENABLED') !== 'false',
   storage: {
     provider: readEnv('STORAGE_PROVIDER'),
     bucket: readEnv('STORAGE_BUCKET', 'YC_BUCKET'),
