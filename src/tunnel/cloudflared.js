@@ -49,6 +49,8 @@ async function startTunnel() {
     // Named tunnel — публичный URL задаётся через BOTHOST_API_URL
     const namedUrl = process.env.BOTHOST_API_URL;
     if (!namedUrl) throw new Error('[tunnel] CLOUDFLARE_TUNNEL_TOKEN задан, но BOTHOST_API_URL не задан');
+    const tokenPreview = token.slice(0, 6) + '...' + token.slice(-4);
+    console.log('[tunnel] command: ' + BINARY + ' tunnel run --token ' + tokenPreview);
     console.log('[tunnel] starting cloudflared');
     const proc = spawn(BINARY, ['tunnel', 'run', '--token', token], {
       stdio: ['ignore', 'pipe', 'pipe'],
