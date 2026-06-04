@@ -19,8 +19,9 @@ const publicUrl = require('./tunnel/publicUrl');
 async function main() {
   startPlayerServer();
 
+  console.log('[startup] calling bot.launch()');
   await bot.launch();
-  console.log('NeuroTech Quit Bot запущен');
+  console.log('[startup] bot.launch() ok');
 
   if (config.cronEnabled) {
     console.log('[startup] cronEnabled=true, starting cron');
