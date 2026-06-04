@@ -19,6 +19,16 @@ const publicUrl = require('./tunnel/publicUrl');
 async function main() {
   startPlayerServer();
 
+  await bot.launch();
+  console.log('NeuroTech Quit Bot запущен');
+
+  if (config.cronEnabled) {
+    console.log('[startup] cronEnabled=true, starting cron');
+    startCron(bot);
+  } else {
+    console.log('[startup] cron disabled (CRON_ENABLED=false)');
+  }
+
   try {
     const tunnelUrl = await startTunnel();
     publicUrl.set(tunnelUrl);
@@ -26,14 +36,6 @@ async function main() {
   } catch (err) {
     console.error('[main] tunnel error:', err.message);
     process.exit(1);
-  }
-
-  await bot.launch();
-  console.log('NeuroTech Quit Bot запущен');
-  if (config.cronEnabled) {
-    startCron(bot);
-  } else {
-    console.log('Cron-задачи отключены');
   }
 }
 

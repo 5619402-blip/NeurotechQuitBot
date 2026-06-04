@@ -15,6 +15,7 @@ let isRunning = false;
 async function runRemindersCron(bot) {
   if (isRunning) return;
   isRunning = true;
+  console.log('[cron] run reminders');
   try {
     await _sendDueReminders(bot);
     await _rescheduleOrExpire();
