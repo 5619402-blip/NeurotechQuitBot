@@ -35,6 +35,9 @@ function download(url, dest, redirectCount) {
 }
 
 async function startTunnel() {
+  console.log('[tunnel] startTunnel called');
+  console.log('[tunnel] token set:', !!process.env.CLOUDFLARE_TUNNEL_TOKEN);
+  console.log('[tunnel] BOTHOST_API_URL set:', !!process.env.BOTHOST_API_URL, process.env.BOTHOST_API_URL || '(not set)');
   if (!fs.existsSync(BINARY)) {
     console.log('[cloudflared] downloading binary...');
     await download(DOWNLOAD_URL, BINARY);
