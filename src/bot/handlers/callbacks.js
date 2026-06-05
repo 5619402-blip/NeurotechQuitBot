@@ -38,7 +38,7 @@ const { showProcedureInterrupted } = require('../screens/procedureInterrupted');
 const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
 const { showPostProcedure } = require('../screens/postProcedure');
-const { showPostProcedureWait } = require('../screens/postProcedureWait');
+const { showPostProcedureWait, showPostProcedureWait3 } = require('../screens/postProcedureWait');
 const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
 const { showSingleProcedureInterrupted } = require('../screens/singleProcedureInterrupted');
 const { showShortProcedureInfo } = require('../screens/shortProcedureInfo');
@@ -998,6 +998,7 @@ module.exports = (bot) => {
     if (ar?.access_type === 'single_procedure') {
       return showSingleProcedureCompleted(ctx);
     }
+    let isThirdProcedure = false;
     if (user.access_type === 'full_access') {
       const [pq2Session, progress] = await Promise.all([
         getSessionById(sessionId),
@@ -1025,7 +1026,11 @@ module.exports = (bot) => {
           }
         }
       }
+      if (pq2Procedure?.procedure_type === 'anti_tobacco' && progress?.next_procedure_type === 'short_quick_lever') {
+        isThirdProcedure = true;
+      }
     }
+    if (isThirdProcedure) return showPostProcedureWait3(ctx);
     await showPostProcedureWait(ctx);
   });
 
