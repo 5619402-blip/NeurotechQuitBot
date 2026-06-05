@@ -6,7 +6,7 @@ const {
   rescheduleReminder,
   expireReminder,
 } = require('../db/reminders');
-const { getUserById, setPaused } = require('../db/users');
+const { getUserById, setPaused, setLastBotMessageId } = require('../db/users');
 const { getProcedureById, hasCompletedSessionForProcedure } = require('../db/sessions');
 const { buildReminderText, buildReminderKeyboard } = require('../bot/screens/reminderMessage');
 
@@ -55,12 +55,23 @@ async function _sendDueReminders(bot) {
         : null;
       const procedureType = procedure?.procedure_type ?? null;
 
-      await bot.telegram.sendMessage(
+      const oldMessageId = user.last_bot_message_id;
+      const sentMsg = await bot.telegram.sendMessage(
         user.telegram_id,
         buildReminderText(procedureType),
         buildReminderKeyboard(reminder.id)
       );
       await markReminderSent(reminder.id);
+      if (sentMsg?.message_id) {
+        await setLastBotMessageId(user.telegram_id, sentMsg.message_id);
+        if (oldMessageId) {
+          try {
+            await bot.telegram.deleteMessage(user.telegram_id, oldMessageId);
+          } catch {
+            // already deleted or too old — silent
+          }
+        }
+      }
     } catch (err) {
       console.error(`[cron:reminders] Error on reminder ${reminder.id}:`, err.message);
       const blocked = err.description && (
