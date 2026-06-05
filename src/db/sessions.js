@@ -86,11 +86,14 @@ async function getStartedSessionForUser(userId) {
   }
 }
 
-async function hasCompletedSessionForProcedure(userId, procedureId) {
+async function hasCompletedSessionForProcedure(userId, procedureId, afterSessionId) {
   try {
-    const row = await db('procedure_sessions')
-      .where({ user_id: userId, procedure_id: procedureId, session_status: 'completed' })
-      .first();
+    let query = db('procedure_sessions')
+      .where({ user_id: userId, procedure_id: procedureId, session_status: 'completed' });
+    if (afterSessionId) {
+      query = query.where('id', '>', afterSessionId);
+    }
+    const row = await query.first();
     return !!row;
   } catch (err) {
     console.error('[db] hasCompletedSessionForProcedure:', err.message);

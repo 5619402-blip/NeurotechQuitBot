@@ -37,7 +37,7 @@ async function _sendDueReminders(bot) {
       }
 
       const procedureAlreadyDone = reminder.procedure_id
-        ? await hasCompletedSessionForProcedure(reminder.user_id, reminder.procedure_id)
+        ? await hasCompletedSessionForProcedure(reminder.user_id, reminder.procedure_id, reminder.related_session_id)
         : false;
 
       if (
