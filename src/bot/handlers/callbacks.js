@@ -1848,7 +1848,9 @@ module.exports = (bot) => {
       return;
     }
 
-    if (!awaitingSupportText.has(telegramId)) return;
+    if (!awaitingSupportText.has(telegramId)) {
+      return ctx.reply('Чтобы начать, нажмите /start.');
+    }
 
     const sessionId = awaitingSupportText.get(telegramId);
     awaitingSupportText.delete(telegramId);
