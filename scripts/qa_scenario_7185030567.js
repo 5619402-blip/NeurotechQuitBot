@@ -117,6 +117,7 @@ async function run() {
     .where('ps.user_id', user.id)
     .where('ps.session_status', 'completed')
     .where('ps.is_counted_as_completed', 1)
+    .whereNot('p.procedure_type', 'alpha')
     .select('ps.id', 'ps.procedure_id', 'p.procedure_type', 'ps.completed_at')
     .orderBy('ps.id', 'asc');
 
@@ -198,6 +199,12 @@ async function run() {
       } else {
         fail(label + ': expired — next session (' + ref.next_type +
           ') missing — user may be stuck (reminder_id=' + reminder.id + ')');
+      }
+    } else if (reminder.reminder_status === 'completed') {
+      if (nextSession) {
+        ok(label + ': completed — user responded, next session exists (reminder_id=' + reminder.id + ')');
+      } else {
+        warn(label + ': completed — user responded but next session missing (reminder_id=' + reminder.id + ')');
       }
     } else {
       warn(label + ': unexpected status=' + reminder.reminder_status + ' (reminder_id=' + reminder.id + ')');

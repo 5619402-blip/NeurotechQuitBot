@@ -19,6 +19,7 @@ const STATUS_LABELS = {
   procedure_completed:    'Процедура завершена',
   protocol_paused:        'Протокол приостановлен',
   followup_pending:       'Запланирован follow-up',
+  protocol_completed:     'Протокол завершён',
 };
 
 const ACCESS_ERROR_TEXT =
