@@ -5,8 +5,11 @@ const CYCLE_DONE_FULL_TEXT =
   'Наблюдайте за своим состоянием и возвращайтесь, если понадобится поддержка.';
 
 const CYCLE_DONE_SINGLE_TEXT =
-  'Текущий этап завершён. Вы использовали оплаченный доступ к процедуре. ' +
-  'Чтобы продолжить протокол, вы можете оплатить следующую процедуру или перейти на полный доступ.';
+  'Пробная процедура завершена.\n\n' +
+  'Вы прошли одну оплаченную процедуру NeuroTech Quit.\n\n' +
+  'Для продолжения полного протокола нужен полный доступ. В полном доступе следующие процедуры ' +
+  'открываются поэтапно, с нужными интервалами, а Альфа-процедура доступна как поддержка состояния.\n\n' +
+  'Если хотите продолжить работу по протоколу, откройте полный доступ.';
 
 const cycleDoneFullKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('Мой доступ', 'my_access:show')],
@@ -16,9 +19,7 @@ const cycleDoneFullKeyboard = Markup.inlineKeyboard([
 ]);
 
 const cycleDoneSingleKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('Оплатить следующую процедуру — 990 ₽', 'cycle_done:pay_next')],
   [Markup.button.callback('Доплатить до полного доступа — 3 910 ₽', 'cycle_done:upgrade')],
-  [Markup.button.callback('Оставить отзыв', 'cycle_done:review')],
   [Markup.button.callback('Главное меню', 'cycle_done:menu')],
 ]);
 

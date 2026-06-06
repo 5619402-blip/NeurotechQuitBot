@@ -9,7 +9,7 @@ const TARIFF_TEXT_NEW =
 
 const TARIFF_TEXT_UPGRADE =
   'У вас уже есть оплаченный доступ к одной процедуре.\n\n' +
-  'Вы можете оплатить следующую процедуру или доплатить до полного доступа ко всему протоколу и неограниченной Альфа-процедуре.';
+  'Чтобы продолжить протокол, откройте полный доступ ко всему протоколу и неограниченной Альфа-процедуре.';
 
 const tariffKeyboardNew = Markup.inlineKeyboard([
   [Markup.button.callback('Одна процедура — 990 ₽', 'tariff:single')],
@@ -17,7 +17,6 @@ const tariffKeyboardNew = Markup.inlineKeyboard([
 ]);
 
 const tariffKeyboardUpgrade = Markup.inlineKeyboard([
-  [Markup.button.callback('Оплатить следующую процедуру — 990 ₽', 'tariff:single_next')],
   [Markup.button.callback('Доплатить до полного доступа — 3 910 ₽', 'tariff:upgrade')],
 ]);
 

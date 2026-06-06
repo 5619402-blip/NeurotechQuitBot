@@ -163,8 +163,6 @@ function buildSingleProcedureKeyboard(ar) {
 
   if (hasAvailableProcedure) {
     buttons.push([Markup.button.callback('Продолжить протокол', 'my_access:continue_protocol')]);
-  } else {
-    buttons.push([Markup.button.callback('Оплатить следующую процедуру — 990 ₽', 'my_access:pay_next')]);
   }
 
   if (ar.upgrade_available) {

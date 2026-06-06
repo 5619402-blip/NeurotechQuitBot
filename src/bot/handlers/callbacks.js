@@ -64,6 +64,23 @@ const { createUserReview } = require('../../db/userReviews');
 const awaitingSupportText = new Map();
 const awaitingReviewText = new Map();
 
+const SINGLE_NEXT_UNAVAILABLE_TEXT =
+  'Этот вариант больше недоступен. ' +
+  'Чтобы продолжить протокол, откройте полный доступ.';
+
+const singleNextUnavailableKeyboard = Markup.inlineKeyboard([
+  [Markup.button.callback('Доплатить до полного доступа — 3 910 ₽', 'my_access:upgrade')],
+  [Markup.button.callback('Мой доступ', 'my_access:show')],
+]);
+
+async function showSingleNextUnavailable(ctx) {
+  try {
+    await ctx.editMessageText(SINGLE_NEXT_UNAVAILABLE_TEXT, singleNextUnavailableKeyboard);
+  } catch {
+    await ctx.reply(SINGLE_NEXT_UNAVAILABLE_TEXT, singleNextUnavailableKeyboard);
+  }
+}
+
 async function showNextStep(ctx, step, procedureType, isFirstProcedure, progress, isFullAccess) {
   if (step >= 5) return showProtocolCycleComplete(ctx);
   if (isFullAccess && progress?.next_procedure_unlocks_at) {
@@ -417,7 +434,7 @@ module.exports = (bot) => {
 
   bot.action('tariff:single_next', async (ctx) => {
     await ctx.answerCbQuery();
-    await showPaymentStub(ctx, 'single_next');
+    await showSingleNextUnavailable(ctx);
   });
 
   bot.action('tariff:upgrade', async (ctx) => {
@@ -430,6 +447,9 @@ module.exports = (bot) => {
   bot.action(/^payment:test_/, async (ctx) => {
     await ctx.answerCbQuery();
     const variant = ctx.callbackQuery.data.replace('payment:test_', '');
+    if (variant === 'single_next') {
+      return showSingleNextUnavailable(ctx);
+    }
     try {
       await processTestPayment(ctx.from.id, variant);
       await updateUserAfterPayment(ctx.from.id, variant);
@@ -545,7 +565,7 @@ module.exports = (bot) => {
 
   bot.action('my_access:pay_next', async (ctx) => {
     await ctx.answerCbQuery();
-    await showPaymentStub(ctx, 'single_next');
+    await showSingleNextUnavailable(ctx);
   });
 
   bot.action('my_access:upgrade', async (ctx) => {
@@ -1718,7 +1738,7 @@ module.exports = (bot) => {
 
   bot.action('cycle_done:pay_next', async (ctx) => {
     await ctx.answerCbQuery();
-    await showPaymentStub(ctx, 'single_next');
+    await showSingleNextUnavailable(ctx);
   });
 
   bot.action('cycle_done:upgrade', async (ctx) => {
