@@ -796,6 +796,10 @@ module.exports = (bot) => {
     await setActiveUnfinishedProcedure(user.id, false);
     await updateUserStatus(ctx.from.id, 'procedure_completed');
 
+    if (procedureType === 'alpha') {
+      return showAlphaPostProcedure(ctx);
+    }
+
     await showPostProcedure(ctx, { sessionId });
   });
 
