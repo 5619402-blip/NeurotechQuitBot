@@ -38,4 +38,22 @@ async function showPostProcedureWait3(ctx) {
   }
 }
 
-module.exports = { showPostProcedureWait, showPostProcedureWait3 };
+const ALPHA_POST_PROCEDURE_TEXT =
+  'Альфа-процедура завершена.\n\n' +
+  'Она предназначена для поддержки состояния, снижения внутреннего напряжения ' +
+  'и возвращения к спокойствию.\n\n' +
+  'Вы можете вернуться в «Мой доступ» и продолжить основной протокол ' +
+  'по своему текущему этапу.';
+
+async function showAlphaPostProcedure(ctx) {
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('Перейти в Мой доступ', 'post_procedure_wait:to_access')],
+  ]);
+  try {
+    await ctx.editMessageText(ALPHA_POST_PROCEDURE_TEXT, keyboard);
+  } catch {
+    await ctx.reply(ALPHA_POST_PROCEDURE_TEXT, keyboard);
+  }
+}
+
+module.exports = { showPostProcedureWait, showPostProcedureWait3, showAlphaPostProcedure };

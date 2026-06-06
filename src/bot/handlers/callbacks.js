@@ -38,7 +38,7 @@ const { showProcedureInterrupted } = require('../screens/procedureInterrupted');
 const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
 const { showPostProcedure } = require('../screens/postProcedure');
-const { showPostProcedureWait, showPostProcedureWait3 } = require('../screens/postProcedureWait');
+const { showPostProcedureWait, showPostProcedureWait3, showAlphaPostProcedure } = require('../screens/postProcedureWait');
 const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
 const { showSingleProcedureInterrupted } = require('../screens/singleProcedureInterrupted');
 const { showShortProcedureInfo } = require('../screens/shortProcedureInfo');
@@ -950,6 +950,9 @@ module.exports = (bot) => {
     const session = await getSessionById(sessionId);
     const procedure = session?.procedure_id ? await getProcedureById(session.procedure_id) : null;
     const procedureType = procedure?.procedure_type ?? null;
+    if (procedureType === 'alpha') {
+      return showAlphaPostProcedure(ctx);
+    }
     if (procedureType === 'short_quick_lever' || procedureType === 'short_anti_tobacco') {
       return showShortPostQ1(ctx, sessionId);
     }
