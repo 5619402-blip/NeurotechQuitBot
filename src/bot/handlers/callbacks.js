@@ -676,7 +676,7 @@ module.exports = (bot) => {
   // ─── Экран предупреждения перед запуском (раздел 8.2) ────────────────────────
 
   bot.action(/^player_warning:start:/, async (ctx) => {
-    await ctx.answerCbQuery();
+    await ctx.answerCbQuery().catch(() => {});
     const procedureType = ctx.callbackQuery.data.replace('player_warning:start:', '');
 
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
@@ -735,7 +735,7 @@ module.exports = (bot) => {
   });
 
   bot.action(/^player_warning:back:/, async (ctx) => {
-    await ctx.answerCbQuery();
+    await ctx.answerCbQuery().catch(() => {});
     const procedureType = ctx.callbackQuery.data.replace('player_warning:back:', '');
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     const progress = user?.id ? await getProtocolProgress(user.id) : null;
