@@ -8,6 +8,10 @@ const { handleGiftCommand, handleAdminPreviewCommand, handleAdminCommand } = reg
 
 const bot = new Telegraf(config.botToken);
 
+bot.catch((err, ctx) => {
+  console.error('[bot] unhandled error update_id=%d: %s', ctx.update?.update_id, err.message);
+});
+
 // Перехватывает ctx.reply глобально: после каждого нового сообщения сохраняет
 // message_id как last_bot_message_id. Покрывает /start-fallback и callback-fallback.
 bot.use(async (ctx, next) => {

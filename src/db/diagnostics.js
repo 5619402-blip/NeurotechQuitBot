@@ -6,14 +6,22 @@ async function saveDraftAnswer(telegramId, field, value) {
   try {
     const user = await db('users').where({ telegram_id: telegramId }).select('id').first();
     if (!user) return;
-    await db.raw(
-      `INSERT INTO draft_answers (user_id, screen_id, answers_json, updated_at)
-       VALUES (?, ?, jsonb_build_object(?::text, ?::text), NOW())
-       ON CONFLICT (user_id, screen_id) DO UPDATE SET
-         answers_json = draft_answers.answers_json || jsonb_build_object(?::text, ?::text),
-         updated_at = NOW()`,
-      [user.id, SCREEN_ID, field, String(value), field, String(value)]
-    );
+    const existing = await db('draft_answers')
+      .where({ user_id: user.id, screen_id: SCREEN_ID })
+      .select('answers_json')
+      .first();
+    const raw = existing?.answers_json;
+    const current = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    const updated = JSON.stringify({ ...current, [field]: String(value) });
+    await db('draft_answers')
+      .insert({
+        user_id: user.id,
+        screen_id: SCREEN_ID,
+        answers_json: updated,
+        updated_at: new Date().toISOString(),
+      })
+      .onConflict(['user_id', 'screen_id'])
+      .merge({ answers_json: updated, updated_at: new Date().toISOString() });
     console.log(`[diag] draft: user=${telegramId} ${field}=${value}`);
   } catch (err) {
     console.error('[db] saveDraftAnswer:', err.message);
@@ -26,9 +34,13 @@ async function getDraftAnswer(telegramId, field) {
     if (!user) return null;
     const row = await db('draft_answers')
       .where({ user_id: user.id, screen_id: SCREEN_ID })
-      .select(db.raw(`answers_json->>? AS val`, [field]))
+      .select('answers_json')
       .first();
-    return row?.val ?? null;
+    if (!row?.answers_json) return null;
+    const parsed = typeof row.answers_json === 'string'
+      ? JSON.parse(row.answers_json)
+      : row.answers_json;
+    return parsed[field] ?? null;
   } catch (err) {
     console.error('[db] getDraftAnswer:', err.message);
     return null;
@@ -43,7 +55,9 @@ async function getAllDraftAnswers(telegramId) {
       .where({ user_id: user.id, screen_id: SCREEN_ID })
       .select('answers_json')
       .first();
-    return row?.answers_json ?? null;
+    if (!row?.answers_json) return null;
+    const raw = row.answers_json;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch (err) {
     console.error('[db] getAllDraftAnswers:', err.message);
     return null;
