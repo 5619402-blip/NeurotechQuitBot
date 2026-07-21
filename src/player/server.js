@@ -228,9 +228,9 @@ async function launchHandler(req, res) {
   try {
     const row = await getTokenForLaunch(token);
 
-    // Токен многоразовый в пределах TTL (2 часа):
-    // блокируем только отозванные, истёкшие и токены неактивных сессий.
-    if (!row || row.is_revoked || new Date(row.expires_at) < new Date()) {
+    // Токен одноразовый, TTL 5 минут (решение владельца — безопасность):
+    // блокируем отозванные, истёкшие, уже использованные и токены неактивных сессий.
+    if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
       console.log('[launch] blocked (invalid/expired):', token.slice(0, 8));
       settle.reject(new Error('blocked'));
       pendingRequests.delete(token);
@@ -244,9 +244,13 @@ async function launchHandler(req, res) {
       return res.status(403).send(LINK_UNAVAILABLE_HTML);
     }
 
-    // Первое открытие фиксируем для аналитики; повторные открытия не блокируются
-    if (!row.used_at) {
-      markTokenUsed(token).catch(() => {});
+    // Атомарно забираем одноразовый токен; при гонке побеждает первый запрос
+    const claimed = await markTokenUsed(token);
+    if (!claimed) {
+      console.log('[launch] race blocked:', token.slice(0, 8));
+      settle.reject(new Error('race blocked'));
+      pendingRequests.delete(token);
+      return res.status(403).send(LINK_UNAVAILABLE_HTML);
     }
 
     let playbackId;

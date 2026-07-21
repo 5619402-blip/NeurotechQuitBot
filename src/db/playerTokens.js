@@ -4,9 +4,9 @@ const db = require('./connection');
 async function createPlayerToken(userId, sessionId) {
   try {
     const token = randomUUID();
-    // TTL 2 часа (раздел 8 ТЗ). Ссылка многоразовая в пределах TTL,
-    // пока procedure_session остаётся в статусе started.
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    // TTL 5 минут — осознанное решение по безопасности (решение владельца):
+    // ссылка одноразовая и короткоживущая, чтобы её нельзя было передать/переиспользовать.
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const [row] = await db('player_tokens')
       .insert({
         user_id: userId,
@@ -73,12 +73,14 @@ async function getTokenForLaunch(token) {
   }
 }
 
-// Отмечает первое открытие ссылки (аналитика). Не блокирует повторные открытия.
+// Атомарно «забирает» одноразовый токен: срабатывает только один раз,
+// повторное использование блокируется (защита от гонки двойного клика).
 async function markTokenUsed(token) {
   try {
     const count = await db('player_tokens')
       .where({ token, is_revoked: false })
       .whereNull('used_at')
+      .where('expires_at', '>', new Date())
       .update({ used_at: new Date() });
     return count;
   } catch (err) {
