@@ -8,7 +8,7 @@ const { getMuxPlaybackId } = require('../mux/playbackIds');
 const { generateMuxPlaybackToken } = require('../mux/token');
 
 const PRESIGN_TTL = 600; // 10 минут
-const GRACE_MS = 10_000; // grace window для повторного запроса одного токена
+const GRACE_MS = 10_000; // окно кэша redirect для повторного запроса одного токена
 const redirectCache   = new Map(); // token → { url, expiresAt }
 const pendingRequests = new Map(); // token → Promise<string> (in-flight)
 
@@ -136,13 +136,6 @@ function buildPlayerHtml(signedUrl) {
 
     let maxAllowedTime = 0;
 
-    function fmt(s) {
-      if (!isFinite(s)) return '–:––';
-      const m = Math.floor(s / 60);
-      const sec = Math.floor(s % 60);
-      return m + ':' + String(sec).padStart(2, '0');
-    }
-
     // Запрет перемотки
     audio.addEventListener('seeking', () => {
       if (audio.currentTime > maxAllowedTime + 1.5) {
@@ -176,6 +169,13 @@ function buildPlayerHtml(signedUrl) {
       hint.textContent = 'Процедура завершена. Вернитесь в Telegram.';
     });
 
+    function fmt(s) {
+      if (!isFinite(s)) return '–:––';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return m + ':' + String(sec).padStart(2, '0');
+    }
+
     function togglePlay() {
       if (audio.paused) {
         audio.play().then(() => {
@@ -200,20 +200,14 @@ async function launchHandler(req, res) {
     return res.status(400).send(LINK_UNAVAILABLE_HTML);
   }
 
-  // 1. Grace window: повторный запрос уже завершённого токена → тот же redirect
+  // 1. Кэш недавнего redirect: повторный запрос того же токена → тот же URL
   const cached = redirectCache.get(token);
-  const diffMs = cached ? cached.expiresAt - Date.now() : null;
-  console.log('[launch] cache check:', token.slice(0, 8),
-    '| size=' + redirectCache.size,
-    '| hit=' + !!cached,
-    cached ? '| diffMs=' + diffMs : '| miss'
-  );
-  if (cached && diffMs > 0) {
-    console.log('[launch] grace redirect:', token.slice(0, 8));
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log('[launch] cache redirect:', token.slice(0, 8));
     return res.redirect(302, cached.url);
   }
 
-  // 2. In-flight: первый запрос ещё обрабатывается → ждём его результат
+  // 2. In-flight: параллельный запрос того же токена → ждём результат первого
   const inflight = pendingRequests.get(token);
   if (inflight) {
     console.log('[launch] await inflight:', token.slice(0, 8));
@@ -226,7 +220,7 @@ async function launchHandler(req, res) {
     }
   }
 
-  // 3. Первый запрос — зарегистрировать как in-flight до async операций
+  // 3. Обработка запроса
   let settle;
   const processing = new Promise((resolve, reject) => { settle = { resolve, reject }; });
   pendingRequests.set(token, processing);
@@ -234,26 +228,25 @@ async function launchHandler(req, res) {
   try {
     const row = await getTokenForLaunch(token);
 
-    if (!row || row.is_revoked || row.used_at || new Date(row.expires_at) < new Date()) {
-      console.log('[launch] blocked:', token.slice(0, 8));
+    // Токен многоразовый в пределах TTL (2 часа):
+    // блокируем только отозванные, истёкшие и токены неактивных сессий.
+    if (!row || row.is_revoked || new Date(row.expires_at) < new Date()) {
+      console.log('[launch] blocked (invalid/expired):', token.slice(0, 8));
       settle.reject(new Error('blocked'));
       pendingRequests.delete(token);
       return res.status(403).send(LINK_UNAVAILABLE_HTML);
     }
 
     if (row.session_status !== 'started') {
-      console.log('[launch] blocked:', token.slice(0, 8));
+      console.log('[launch] blocked (session not started):', token.slice(0, 8));
       settle.reject(new Error('blocked'));
       pendingRequests.delete(token);
       return res.status(403).send(LINK_UNAVAILABLE_HTML);
     }
 
-    const claimed = await markTokenUsed(token);
-    if (!claimed) {
-      console.log('[launch] race blocked:', token.slice(0, 8));
-      settle.reject(new Error('race blocked'));
-      pendingRequests.delete(token);
-      return res.status(403).send(LINK_UNAVAILABLE_HTML);
+    // Первое открытие фиксируем для аналитики; повторные открытия не блокируются
+    if (!row.used_at) {
+      markTokenUsed(token).catch(() => {});
     }
 
     let playbackId;

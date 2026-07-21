@@ -3,16 +3,6 @@ const { createPlayerToken } = require('../../db/playerTokens');
 const { getUserByTelegramId } = require('../../db/users');
 const publicUrl = require('../../tunnel/publicUrl');
 
-// Legacy: presigned URL через Yandex Object Storage — больше не используется как основной путь.
-// Оставлено для справки. Удалить после полного перехода на Mux.
-// const { getPlayerToken } = require('../../db/playerTokens');
-// const { generatePresignedUrl } = require('../../storage/presignedUrl');
-// async function buildPresignedUrl(token) {
-//   const row = await getPlayerToken(token);
-//   if (!row?.storage_path) throw new Error('storage_path не найден для токена');
-//   return generatePresignedUrl(row.storage_path);
-// }
-
 async function buildLaunchUrl(ctx, sessionId) {
   const botApiUrl = publicUrl.get();
   if (!botApiUrl) throw new Error('Tunnel URL не готов — повторите позже');
@@ -26,19 +16,21 @@ async function buildLaunchUrl(ctx, sessionId) {
   return `${botApiUrl}/launch/${playerToken.token}`;
 }
 
-function buildLaunchText(url) {
-  return (
-    'Процедура готова к запуску.\n\n' +
-    `Ссылка на процедуру:\n${url}\n\n` +
-    'Ссылка действительна ограниченное время. Откройте её и пройдите процедуру полностью.'
-  );
-}
+// Ссылка НЕ вставляется в текст сообщения: Telegram делает предпросмотр
+// текстовых ссылок и «трогает» URL со своих серверов. Ссылка уходит только
+// кнопкой — кнопочные URL Telegram не предзагружает.
+const LAUNCH_TEXT =
+  'Процедура готова к запуску.\n\n' +
+  'Нажмите кнопку ниже, чтобы открыть защищённый плеер. ' +
+  'Ссылка действует 2 часа.\n\n' +
+  'Наденьте наушники и пройдите процедуру полностью, без остановок.';
 
-function buildLaunchKeyboard(sessionId) {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback('Завершить процедуру (тест)', `player_stub:completed:${sessionId}`)],
-    [Markup.button.callback('Экстренно выйти (тест)', `player_stub:interrupted:${sessionId}`)],
-  ]);
+function buildLaunchKeyboard(sessionId, url) {
+  const rows = [];
+  if (url) rows.push([Markup.button.url('▶ Открыть процедуру', url)]);
+  rows.push([Markup.button.callback('Завершить процедуру (тест)', `player_stub:completed:${sessionId}`)]);
+  rows.push([Markup.button.callback('Экстренно выйти (тест)', `player_stub:interrupted:${sessionId}`)]);
+  return Markup.inlineKeyboard(rows);
 }
 
 async function sendScreen(ctx, text, keyboard) {
@@ -58,11 +50,11 @@ async function showProcedureLaunch(ctx, { procedureType, sessionId }) {
     await sendScreen(
       ctx,
       'Процедура временно недоступна. Напишите поддержке.',
-      buildLaunchKeyboard(sessionId)
+      buildLaunchKeyboard(sessionId, null)
     );
     return;
   }
-  await sendScreen(ctx, buildLaunchText(url), buildLaunchKeyboard(sessionId));
+  await sendScreen(ctx, LAUNCH_TEXT, buildLaunchKeyboard(sessionId, url));
 }
 
 module.exports = { showProcedureLaunch };
