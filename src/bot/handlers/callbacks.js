@@ -1011,7 +1011,6 @@ module.exports = (bot) => {
     if (ar?.access_type === 'single_procedure') {
       return showSingleProcedureCompleted(ctx);
     }
-    let isThirdProcedure = false;
     if (user.access_type === 'full_access') {
       const [pq2Session, progress] = await Promise.all([
         getSessionById(sessionId),
@@ -1039,12 +1038,10 @@ module.exports = (bot) => {
           }
         }
       }
-      if (pq2Procedure?.procedure_type === 'anti_tobacco' && progress?.next_procedure_type === 'short_quick_lever') {
-        isThirdProcedure = true;
-      }
     }
-    if (isThirdProcedure) return showPostProcedureWait3(ctx);
-    await showPostProcedureWait(ctx);
+    // Цепочка вопросов сокращена решением владельца (23.07): Q1 → Q2 → Q5.
+    // Q3, Q4, Q6 исключены как чисто исследовательские / дублирующие.
+    await showPostQ5(ctx, sessionId);
   });
 
   bot.action(/^post_q:3:/, async (ctx) => {
@@ -1077,7 +1074,7 @@ module.exports = (bot) => {
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'q5', value);
-    await showPostQ6(ctx, sessionId);
+    await showPostQComplete(ctx, sessionId);
   });
 
   bot.action(/^post_q:6:/, async (ctx) => {
@@ -1100,15 +1097,14 @@ module.exports = (bot) => {
     if (!user?.id) return showMyAccess(ctx, user);
 
     const answers = await getPostProcedureAnswers(user.id, sessionId);
-    const requiredKeys = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'];
+    const requiredKeys = ['q1', 'q2', 'q5'];
     const missingKey = requiredKeys.find(k => !answers[k]);
     if (missingKey) {
-      const qNum = parseInt(missingKey.replace('q', ''), 10);
-      const showFns = [null, showPostQ1, showPostQ2, showPostQ3, showPostQ4, showPostQ5, showPostQ6];
-      return showFns[qNum](ctx, sessionId);
+      const showByKey = { q1: showPostQ1, q2: showPostQ2, q5: showPostQ5 };
+      return showByKey[missingKey](ctx, sessionId);
     }
 
-    const { q2, q5, q6 } = answers;
+    const { q2, q5 } = answers;
 
     if (q5 === 'yes_continue') {
       await updateUserStatus(ctx.from.id, 'waiting_next_procedure');
@@ -1164,20 +1160,6 @@ module.exports = (bot) => {
     if (q5 === 'not_sure') {
       await createNextDayFollowup(user.id, sessionId);
       await updateUserStatus(ctx.from.id, 'followup_pending');
-      if (q6 === 'want_alpha') {
-        const ar = await getAccessRights(user.id);
-        const alphaAvailable = ar && (
-          user.access_type === 'full_access' ||
-          (ar.available_alpha_sessions_count !== null &&
-            ar.available_alpha_sessions_count > ar.used_alpha_sessions_count)
-        );
-        if (alphaAvailable) return showPreparation(ctx, { isFirstProcedure: false, procedureType: 'alpha' });
-        return showMyAccess(ctx, user);
-      }
-      if (q6 === 'need_support') {
-        awaitingSupportText.set(ctx.from.id, sessionId);
-        return showSupportRequest(ctx);
-      }
       return showMyAccess(ctx, user);
     }
 
