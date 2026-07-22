@@ -33,6 +33,17 @@ bot.use(async (ctx, next) => {
     return msg;
   };
 
+  // Видео-сообщения (отзывы, видео правил) тоже должны запоминаться —
+  // иначе /start и следующие экраны не могут их удалить (правило одного сообщения)
+  const originalReplyWithVideo = ctx.replyWithVideo.bind(ctx);
+  ctx.replyWithVideo = async (...args) => {
+    const msg = await originalReplyWithVideo(...args);
+    if (ctx.from?.id && msg?.message_id) {
+      setLastBotMessageId(ctx.from.id, msg.message_id).catch(() => {});
+    }
+    return msg;
+  };
+
   return next();
 });
 
