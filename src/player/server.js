@@ -6,6 +6,13 @@ const { getPlayerToken, getTokenForLaunch, markTokenUsed } = require('../db/play
 const { getAdminPreviewToken, incrementAdminPreviewUseCount } = require('../db/adminPreviewTokens');
 const { getMuxPlaybackId } = require('../mux/playbackIds');
 const { generateMuxPlaybackToken } = require('../mux/token');
+const { signSession, verifySession } = require('./signature');
+const { completeFromPlayer, interruptFromPlayer } = require('../bot/procedureCompletion');
+const publicUrl = require('../tunnel/publicUrl');
+
+// Инстанс бота, передаётся из index.js — нужен, чтобы после callback от плеера
+// самим прислать пользователю следующий экран в Telegram.
+let botRef = null;
 
 const PRESIGN_TTL = 600; // 10 минут
 const GRACE_MS = 10_000; // окно кэша redirect для повторного запроса одного токена
@@ -274,7 +281,13 @@ async function launchHandler(req, res) {
     }
     const vercelBase = vercelBaseRaw.replace(/\/player\/?$/, '').replace(/\/$/, '');
 
-    const redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+    // sessionId + подпись + адрес callback: плеер сообщит боту о завершении/выходе.
+    // Подпись HMAC — подделать завершение чужой сессии нельзя.
+    let redirectUrl = `${vercelBase}/player?procedure=${row.procedure_type}&playbackId=${playbackId}&token=${muxToken}`;
+    const cbBase = publicUrl.get();
+    if (row.session_id && cbBase) {
+      redirectUrl += `&sessionId=${row.session_id}&sig=${signSession(row.session_id)}&cb=${encodeURIComponent(cbBase)}`;
+    }
     redirectCache.set(token, { url: redirectUrl, expiresAt: Date.now() + GRACE_MS });
     settle.resolve(redirectUrl);
     pendingRequests.delete(token);
@@ -394,13 +407,69 @@ async function playerHandler(req, res) {
   return res.send(buildPlayerHtml(signedUrl));
 }
 
-function startPlayerServer() {
+// Callback от плеера: дослушал аудио → event=completed, «Экстренно выйти» → event=interrupted.
+// Тело — JSON строкой (text/plain, чтобы браузер слал без CORS preflight).
+// Проверка подписи обязательна; бухгалтерия идемпотентна (повторный callback безвреден).
+function setCorsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+async function sessionCallbackHandler(req, res) {
+  setCorsHeaders(res);
+
+  let data;
+  try {
+    data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch {
+    return res.status(400).json({ ok: false });
+  }
+
+  const sessionId = parseInt(data?.sessionId, 10);
+  const { sig, event } = data || {};
+
+  if (!Number.isInteger(sessionId) || !verifySession(sessionId, sig)) {
+    console.log('[callback] bad signature, sessionId=', data?.sessionId);
+    return res.status(403).json({ ok: false });
+  }
+  if (!botRef) {
+    console.error('[callback] bot instance не передан в startPlayerServer');
+    return res.status(503).json({ ok: false });
+  }
+
+  try {
+    let result;
+    if (event === 'completed') {
+      result = await completeFromPlayer(botRef, sessionId);
+    } else if (event === 'interrupted') {
+      result = await interruptFromPlayer(botRef, sessionId);
+    } else {
+      return res.status(400).json({ ok: false });
+    }
+    console.log('[callback]', event, 'session=', sessionId, '→', result.ok ? 'ok' : result.reason);
+    // Даже если сессия уже не 'started' (повтор/тест-кнопка успела раньше) — отвечаем ok.
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[callback] error:', err.message);
+    return res.status(500).json({ ok: false });
+  }
+}
+
+function startPlayerServer(bot) {
+  botRef = bot || null;
   const app = express();
   const port = parseInt(process.env.PLAYER_PORT || '3000', 10);
 
   app.get('/launch/:token', launchHandler);
   app.get('/admin-preview/:token', adminPreviewHandler);
   app.get('/player', playerHandler);
+
+  app.options('/session-callback', (req, res) => {
+    setCorsHeaders(res);
+    res.sendStatus(204);
+  });
+  app.post('/session-callback', express.text({ type: '*/*', limit: '10kb' }), sessionCallbackHandler);
 
   app.listen(port, () => {
     console.log(`Player server запущен на порту ${port}`);

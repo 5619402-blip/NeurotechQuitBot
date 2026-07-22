@@ -10,10 +10,11 @@ function readEnv(...names) {
 }
 
 module.exports = {
-  botToken: readEnv('BOT_TOKEN'),
+  botToken: readEnv('BOT_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TOKEN'),
   databaseUrl: readEnv('DATABASE_URL'),
   adminTelegramIds: [...new Set([
-    '7185030567',
+    '7185030567', // Альберт (главный админ)
+    '967110140',  // Юля
     ...(readEnv('ADMIN_TELEGRAM_IDS') || '').split(',').map(id => id.trim()).filter(Boolean),
   ])],
   playerBaseUrl: readEnv('PLAYER_BASE_URL'),

@@ -1,4 +1,5 @@
 const { Markup } = require('telegraf');
+const config = require('../../config');
 const { createPlayerToken } = require('../../db/playerTokens');
 const { getUserByTelegramId } = require('../../db/users');
 const publicUrl = require('../../tunnel/publicUrl');
@@ -25,11 +26,15 @@ const LAUNCH_TEXT =
   'Ссылка одноразовая и действует 5 минут — откройте её сразу.\n\n' +
   'Наденьте наушники и пройдите процедуру полностью, без остановок.';
 
-function buildLaunchKeyboard(sessionId, url) {
+// Тест-кнопки видят ТОЛЬКО админы (Альберт, Юля) — клиенты видят одну кнопку плеера.
+// Завершение для клиентов бот узнаёт сам: плеер шлёт подписанный callback (см. player/server.js).
+function buildLaunchKeyboard(sessionId, url, isAdmin) {
   const rows = [];
   if (url) rows.push([Markup.button.url('▶ Открыть процедуру', url)]);
-  rows.push([Markup.button.callback('Завершить процедуру (тест)', `player_stub:completed:${sessionId}`)]);
-  rows.push([Markup.button.callback('Экстренно выйти (тест)', `player_stub:interrupted:${sessionId}`)]);
+  if (isAdmin) {
+    rows.push([Markup.button.callback('Завершить процедуру (тест)', `player_stub:completed:${sessionId}`)]);
+    rows.push([Markup.button.callback('Экстренно выйти (тест)', `player_stub:interrupted:${sessionId}`)]);
+  }
   return Markup.inlineKeyboard(rows);
 }
 
@@ -42,6 +47,7 @@ async function sendScreen(ctx, text, keyboard) {
 }
 
 async function showProcedureLaunch(ctx, { procedureType, sessionId }) {
+  const isAdmin = config.adminTelegramIds.includes(String(ctx.from.id));
   let url;
   try {
     url = await buildLaunchUrl(ctx, sessionId);
@@ -50,11 +56,11 @@ async function showProcedureLaunch(ctx, { procedureType, sessionId }) {
     await sendScreen(
       ctx,
       'Процедура временно недоступна. Напишите поддержке.',
-      buildLaunchKeyboard(sessionId, null)
+      buildLaunchKeyboard(sessionId, null, isAdmin)
     );
     return;
   }
-  await sendScreen(ctx, LAUNCH_TEXT, buildLaunchKeyboard(sessionId, url));
+  await sendScreen(ctx, LAUNCH_TEXT, buildLaunchKeyboard(sessionId, url, isAdmin));
 }
 
 module.exports = { showProcedureLaunch };

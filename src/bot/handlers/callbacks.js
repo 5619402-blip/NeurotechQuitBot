@@ -37,6 +37,7 @@ const { showPlayerWarning } = require('../screens/playerWarning');
 const { showProcedureInterrupted } = require('../screens/procedureInterrupted');
 const { showProcedureLaunch } = require('../screens/procedureLaunch');
 const { getProcedureByType, getProcedureById, createSession, getSessionById, completeSession, interruptSession, getStartedSessionForUser } = require('../../db/sessions');
+const { applyCompletion, applyInterruption } = require('../procedureCompletion');
 const { showPostProcedure } = require('../screens/postProcedure');
 const { showPostProcedureWait, showPostProcedureWait3, showAlphaPostProcedure } = require('../screens/postProcedureWait');
 const { showSingleProcedureCompleted } = require('../screens/singleProcedureCompleted');
@@ -763,7 +764,9 @@ module.exports = (bot) => {
     await showPreparation(ctx, { isFirstProcedure, procedureType });
   });
 
-  // ─── Заглушка плеера (тест-режим) ───────────────────────────────────────────
+  // ─── Тест-кнопки плеера (только для админов) ───────────────────────────────
+  // Бухгалтерия — в общем модуле procedureCompletion (тот же путь, что и callback
+  // от реального плеера). Здесь только проверка владельца сессии и показ экрана.
 
   bot.action(/^player_stub:completed:/, async (ctx) => {
     await ctx.answerCbQuery();
@@ -780,8 +783,9 @@ module.exports = (bot) => {
       return;
     }
 
-    const procedure = await getProcedureById(session.procedure_id);
-    if (!procedure) {
+    const result = await applyCompletion(sessionId);
+
+    if (!result.ok) {
       const errorKeyboard = Markup.inlineKeyboard([
         [Markup.button.callback('Мой доступ', 'my_access:show')],
         [Markup.button.callback('Поддержка', 'my_access:support')],
@@ -798,25 +802,7 @@ module.exports = (bot) => {
       return;
     }
 
-    const procedureType = procedure.procedure_type;
-
-    await completeSession(sessionId);
-
-    if (procedureType === 'alpha') {
-      await incrementUsedAlpha(user.id);
-    } else {
-      await incrementUsedMain(user.id);
-      const progress = await getProtocolProgress(user.id);
-      const completedStep = progress?.current_step_number ?? 0;
-      const intervalMs = getStepIntervalAfterMs(completedStep);
-      const unlockAt = intervalMs !== null ? new Date(Date.now() + intervalMs) : null;
-      await upsertProtocolProgress(user.id, procedureType, completedStep, unlockAt);
-    }
-
-    await setActiveUnfinishedProcedure(user.id, false);
-    await updateUserStatus(ctx.from.id, 'procedure_completed');
-
-    if (procedureType === 'alpha') {
+    if (result.procedureType === 'alpha') {
       return showAlphaPostProcedure(ctx);
     }
 
@@ -835,13 +821,10 @@ module.exports = (bot) => {
 
     const isSingle = user.access_type === 'single_procedure';
 
-    if (session.session_status !== 'started') {
-      return isSingle ? showSingleProcedureInterrupted(ctx) : showProcedureInterrupted(ctx);
+    if (session.session_status === 'started') {
+      await applyInterruption(sessionId);
     }
 
-    await interruptSession(sessionId);
-    await setActiveUnfinishedProcedure(user.id, false);
-    await updateUserStatus(ctx.from.id, 'procedure_interrupted');
     if (isSingle) {
       await showSingleProcedureInterrupted(ctx);
     } else {

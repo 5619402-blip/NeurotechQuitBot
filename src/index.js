@@ -17,7 +17,7 @@ const { startTunnel } = require('./tunnel/cloudflared');
 const publicUrl = require('./tunnel/publicUrl');
 
 async function main() {
-  startPlayerServer();
+  startPlayerServer(bot);
 
   console.log('[startup] calling bot.launch()');
   bot.launch()

@@ -173,6 +173,30 @@
       var procedure  = params.get('procedure') || '';
       var playbackId = params.get('playbackId') || '';
       var token      = params.get('token') || '';
+      var sessionId  = params.get('sessionId') || '';
+      var sig        = params.get('sig') || '';
+      var cb         = params.get('cb') || '';
+
+      /* ── Callback боту: дослушал → completed, «Экстренно выйти» → interrupted.
+         Подписано на сервере (sig) — подделать нельзя. text/plain — без preflight. ── */
+      var callbackSent = false;
+      function sendCallback(event) {
+        if (!sessionId || !sig || !cb || callbackSent) return;
+        callbackSent = true;
+        var url  = cb.replace(/\/+$/, '') + '/session-callback';
+        var body = JSON.stringify({ sessionId: sessionId, sig: sig, event: event });
+        try {
+          if (navigator.sendBeacon && navigator.sendBeacon(url, body)) return;
+        } catch (e) {}
+        try {
+          fetch(url, {
+            method: 'POST',
+            body: body,
+            keepalive: true,
+            headers: { 'Content-Type': 'text/plain' },
+          }).catch(function () {});
+        } catch (e) {}
+      }
 
       if (!playbackId || !token) {
         show('error-screen');
@@ -221,6 +245,7 @@
 
       /* ── Завершение ── */
       player.addEventListener('ended', function () {
+        sendCallback('completed');
         show('completed-screen');
       });
 
@@ -232,7 +257,11 @@
 
       btnExit.addEventListener('click', function () {
         try { player.pause(); } catch (e) {}
-        window.location.href = 'https://t.me/NeuroTechQuitBot';
+        sendCallback('interrupted');
+        /* sendBeacon переживает переход, но даём запросу мгновение уйти */
+        setTimeout(function () {
+          window.location.href = 'https://t.me/NeuroTechQuitBot';
+        }, 250);
       });
     })();
   </script>
