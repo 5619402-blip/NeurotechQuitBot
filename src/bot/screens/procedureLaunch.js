@@ -26,14 +26,13 @@ const LAUNCH_TEXT =
   'Ссылка одноразовая и действует 5 минут — откройте её сразу.\n\n' +
   'Наденьте наушники и пройдите процедуру полностью, без остановок.';
 
-// Тест-кнопки видят ТОЛЬКО админы (Альберт, Юля) — клиенты видят одну кнопку плеера.
+// Тест-кнопку видят ТОЛЬКО админы (Альберт, Юля) — клиенты видят одну кнопку плеера.
 // Завершение для клиентов бот узнаёт сам: плеер шлёт подписанный callback (см. player/server.js).
 function buildLaunchKeyboard(sessionId, url, isAdmin) {
   const rows = [];
   if (url) rows.push([Markup.button.url('▶ Открыть процедуру', url)]);
   if (isAdmin) {
     rows.push([Markup.button.callback('Завершить процедуру (тест)', `player_stub:completed:${sessionId}`)]);
-    rows.push([Markup.button.callback('Экстренно выйти (тест)', `player_stub:interrupted:${sessionId}`)]);
   }
   return Markup.inlineKeyboard(rows);
 }
