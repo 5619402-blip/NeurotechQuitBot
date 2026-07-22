@@ -76,7 +76,7 @@ async function activateGiftToken(token, userId) {
   try {
     const rows = await db('gift_access_tokens')
       .where({ token, status: 'active' })
-      .where('expires_at', '>', db.fn.now())
+      .where('expires_at', '>', Date.now()) // ms-число: сравнение с CURRENT_TIMESTAMP-строкой всегда ложно
       .update({
         status: 'used',
         activated_by_user_id: userId,

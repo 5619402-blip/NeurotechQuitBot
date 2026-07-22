@@ -51,13 +51,20 @@ async function getDueReminders() {
   }
 }
 
+// SQLite-совместимо: интервал «прошло 24 часа» считаем в JS, без Postgres-синтаксиса.
+// Даты в базе хранятся как ms-числа; старые строки CURRENT_TIMESTAMP тоже парсятся.
 async function getSentRemindersForReschedule() {
   try {
-    return await db('reminders')
+    const rows = await db('reminders')
       .where({ reminder_status: 'sent' })
       .whereNull('user_response')
-      .whereRaw("sent_at + interval '24 hours' <= now()")
       .select('*');
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return rows.filter((r) => {
+      if (r.sent_at == null) return false;
+      const sentAt = new Date(r.sent_at).getTime();
+      return Number.isFinite(sentAt) && sentAt <= cutoff;
+    });
   } catch (err) {
     console.error('[db] getSentRemindersForReschedule:', err.message);
     return [];
@@ -69,7 +76,7 @@ async function markReminderSent(id) {
     await db('reminders')
       .where({ id })
       .update({
-        sent_at: db.fn.now(),
+        sent_at: new Date(), // ms-число, единый формат с scheduled_at
         reminder_count: db.raw('reminder_count + 1'),
         reminder_status: 'sent',
       });

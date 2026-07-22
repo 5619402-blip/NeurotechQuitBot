@@ -751,7 +751,10 @@ module.exports = (bot) => {
     }
 
     await setActiveUnfinishedProcedure(user.id, true);
-    await updateUserStatus(ctx.from.id, 'procedure_in_progress');
+    // Альфа не меняет статус основного протокола (поддерживающая процедура)
+    if (procedureType !== 'alpha') {
+      await updateUserStatus(ctx.from.id, 'procedure_in_progress');
+    }
     await showProcedureLaunch(ctx, { procedureType, sessionId: session.id });
   });
 

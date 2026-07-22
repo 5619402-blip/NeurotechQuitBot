@@ -37,7 +37,7 @@ async function getDueSevenDayFollowups() {
   try {
     return await db('seven_day_followups')
       .where({ followup_status: 'scheduled' })
-      .where('scheduled_at', '<=', db.fn.now())
+      .where('scheduled_at', '<=', Date.now()) // ms-число, не CURRENT_TIMESTAMP-строка
       .select('*');
   } catch (err) {
     console.error('[db] getDueSevenDayFollowups:', err.message);

@@ -14,6 +14,7 @@ const {
   upsertProtocolProgress,
   getStepIntervalAfterMs,
 } = require('../db/access');
+const { createNextDayFollowup } = require('../db/nextDayFollowups');
 
 // Тексты дублируют экраны postProcedureWait/postProcedure/procedureInterrupted —
 // здесь они отправляются НОВЫМ сообщением через bot.telegram (без ctx).
@@ -66,10 +67,18 @@ async function applyCompletion(sessionId) {
     const intervalMs = getStepIntervalAfterMs(completedStep);
     const unlockAt = intervalMs !== null ? new Date(Date.now() + intervalMs) : null;
     await upsertProtocolProgress(user.id, procedureType, completedStep, unlockAt);
+    // ТЗ 12.1: опрос «на следующий день» планируется от completed_at + 24ч —
+    // придёт ДО открытия следующей процедуры (интервалы 24/48ч). Дубли исключены
+    // (createNextDayFollowup проверяет существующую запись по сессии).
+    await createNextDayFollowup(user.id, sessionId);
   }
 
   await setActiveUnfinishedProcedure(user.id, false);
-  await updateUserStatus(user.telegram_id, 'procedure_completed');
+  // Альфа — поддерживающая процедура: статус основного протокола НЕ трогаем
+  // (иначе затирался waiting_next_procedure / not_smoking и т.п.)
+  if (procedureType !== 'alpha') {
+    await updateUserStatus(user.telegram_id, 'procedure_completed');
+  }
 
   return { ok: true, procedureType, user };
 }
@@ -83,9 +92,15 @@ async function applyInterruption(sessionId) {
   const user = await getUserById(session.user_id);
   if (!user) return { ok: false, reason: 'user_not_found' };
 
+  const procedure = await getProcedureById(session.procedure_id);
+  const isAlpha = procedure?.procedure_type === 'alpha';
+
   await interruptSession(sessionId);
   await setActiveUnfinishedProcedure(user.id, false);
-  await updateUserStatus(user.telegram_id, 'procedure_interrupted');
+  // Прерванная Альфа не меняет статус основного протокола
+  if (!isAlpha) {
+    await updateUserStatus(user.telegram_id, 'procedure_interrupted');
+  }
 
   return { ok: true, user };
 }

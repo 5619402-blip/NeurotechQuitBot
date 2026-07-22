@@ -34,9 +34,10 @@ async function getNextDayFollowupById(id) {
 
 async function getDueNextDayFollowups() {
   try {
+    // scheduled_at хранится как ms-число; CURRENT_TIMESTAMP (строка) сравнивался бы неверно
     return await db('next_day_followups')
       .where({ followup_status: 'scheduled' })
-      .where('scheduled_at', '<=', db.fn.now())
+      .where('scheduled_at', '<=', Date.now())
       .select('*');
   } catch (err) {
     console.error('[db] getDueNextDayFollowups:', err.message);
