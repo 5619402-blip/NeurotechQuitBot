@@ -5,7 +5,7 @@
 // Бухгалтерия (списание доступа, шаг протокола, статусы) — здесь, в одном месте.
 
 const { Markup } = require('telegraf');
-const { getUserById, setActiveUnfinishedProcedure, updateUserStatus } = require('../db/users');
+const { getUserById, setActiveUnfinishedProcedure, updateUserStatus, setLastBotMessageId } = require('../db/users');
 const { getSessionById, getProcedureById, completeSession, interruptSession } = require('../db/sessions');
 const {
   getProtocolProgress,
@@ -90,24 +90,44 @@ async function applyInterruption(sessionId) {
   return { ok: true, user };
 }
 
-// Завершение по callback от плеера: бухгалтерия + бот САМ присылает следующий экран.
+// Правило продукта: на экране всегда ОДНО сообщение бота. Поэтому сначала
+// пробуем ОТРЕДАКТИРОВАТЬ последнее сообщение (его id хранится в users),
+// и только если не вышло — шлём новое (и запоминаем его id).
+async function sendScreenViaBot(bot, user, text, keyboard) {
+  const chatId = user.telegram_id;
+  const lastId = user.last_bot_message_id;
+  if (lastId) {
+    try {
+      await bot.telegram.editMessageText(chatId, lastId, undefined, text, keyboard);
+      return;
+    } catch {
+      // сообщение могло быть удалено/устареть — падаем на отправку нового
+    }
+  }
+  try {
+    const msg = await bot.telegram.sendMessage(chatId, text, keyboard);
+    if (msg?.message_id) {
+      await setLastBotMessageId(chatId, msg.message_id).catch(() => {});
+    }
+  } catch (err) {
+    console.error('[completion] send failed:', err.message);
+  }
+}
+
+// Завершение по callback от плеера: бухгалтерия + бот САМ показывает следующий экран.
 async function completeFromPlayer(bot, sessionId) {
   const result = await applyCompletion(sessionId);
   if (!result.ok) return result;
 
   const { procedureType, user } = result;
-  try {
-    if (procedureType === 'alpha') {
-      await bot.telegram.sendMessage(user.telegram_id, ALPHA_POST_PROCEDURE_TEXT, Markup.inlineKeyboard([
-        [Markup.button.callback('Перейти в Мой доступ', 'post_procedure_wait:to_access')],
-      ]));
-    } else {
-      await bot.telegram.sendMessage(user.telegram_id, POST_PROCEDURE_TEXT, Markup.inlineKeyboard([
-        [Markup.button.callback('Далее', `postProcedure:next:${sessionId}`)],
-      ]));
-    }
-  } catch (err) {
-    console.error('[completion] sendMessage failed:', err.message);
+  if (procedureType === 'alpha') {
+    await sendScreenViaBot(bot, user, ALPHA_POST_PROCEDURE_TEXT, Markup.inlineKeyboard([
+      [Markup.button.callback('Перейти в Мой доступ', 'post_procedure_wait:to_access')],
+    ]));
+  } else {
+    await sendScreenViaBot(bot, user, POST_PROCEDURE_TEXT, Markup.inlineKeyboard([
+      [Markup.button.callback('Далее', `postProcedure:next:${sessionId}`)],
+    ]));
   }
   return result;
 }
@@ -130,11 +150,7 @@ async function interruptFromPlayer(bot, sessionId) {
         [Markup.button.callback('Пройти заново сейчас', 'procedure_interrupted:restart')],
         [Markup.button.callback('Вернуться позже', 'procedure_interrupted:later')],
       ]);
-  try {
-    await bot.telegram.sendMessage(user.telegram_id, text, keyboard);
-  } catch (err) {
-    console.error('[completion] sendMessage failed:', err.message);
-  }
+  await sendScreenViaBot(bot, user, text, keyboard);
   return result;
 }
 
