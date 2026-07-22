@@ -21,3 +21,4 @@ tmp/
 
 # Runtime log
 nohup.out
+memory/
