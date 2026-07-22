@@ -23,6 +23,7 @@ const DIAG_CONSENT_TEXT =
 const diagConsentKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('Согласен, мне есть 18 лет', 'diag_consent:accept')],
   [Markup.button.callback('Мне нет 18 лет', 'diag_consent:under18')],
+  [Markup.button.callback('Назад', 'welcome:show')],
 ]);
 
 async function showDiagConsent(ctx) {

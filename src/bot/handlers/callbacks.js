@@ -165,6 +165,11 @@ module.exports = (bot) => {
   bot.action('reviews:back', async (ctx) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
+    // Клиент с доступом возвращается в Главное меню, новичок — на приветствие
+    const rbUser = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (rbUser?.access_type === 'single_procedure' || rbUser?.access_type === 'full_access') {
+      return showMainMenu(ctx);
+    }
     await showWelcome(ctx);
   });
 
@@ -704,10 +709,21 @@ module.exports = (bot) => {
     if (!user?.id) return showWelcome(ctx);
 
     if (user.has_active_unfinished_procedure) {
-      await ctx.editMessageText(
-        'Процедура уже активна. Проверьте статус в «Мой доступ».'
-      ).catch(() => ctx.reply('Процедура уже активна. Проверьте статус в «Мой доступ».'));
-      return;
+      // Не тупик: показываем экран запуска активной процедуры со свежей ссылкой —
+      // человек, случайно закрывший плеер, просто открывает его заново.
+      const activeSession = await getStartedSessionForUser(user.id);
+      if (activeSession) {
+        const activeProcedure = await getProcedureById(activeSession.procedure_id);
+        if (activeProcedure) {
+          await showProcedureLaunch(ctx, {
+            procedureType: activeProcedure.procedure_type,
+            sessionId: activeSession.id,
+          });
+          return;
+        }
+      }
+      // Рассинхрон (флаг стоит, а начатой сессии нет) — чиним флаг и пускаем дальше
+      await setActiveUnfinishedProcedure(user.id, false);
     }
 
     const ar = await getAccessRights(user.id);

@@ -37,7 +37,7 @@ async function showDiagQ_duration(ctx) {
       [Markup.button.callback('3–5 лет', 'diag:dur_3_5y')],
       [Markup.button.callback('5–10 лет', 'diag:dur_5_10y')],
       [Markup.button.callback('Больше 10 лет', 'diag:dur_gt10y')],
-      [Markup.button.callback('Назад', 'diag:nav_adult')],
+      [Markup.button.callback('Назад', 'welcome:show')],
     ])
   );
 }
