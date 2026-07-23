@@ -101,6 +101,50 @@ async function hasCompletedSessionForProcedure(userId, procedureId, afterSession
   }
 }
 
+// Все начатые сессии — для крона брошенных процедур
+async function getAllStartedSessions() {
+  try {
+    return await db('procedure_sessions')
+      .where({ session_status: 'started' })
+      .select('id', 'user_id', 'procedure_id', 'started_at');
+  } catch (err) {
+    console.error('[db] getAllStartedSessions:', err.message);
+    return [];
+  }
+}
+
+// Длительность активного аудио процедуры (секунды) или null
+async function getAudioDurationSeconds(procedureId) {
+  try {
+    const row = await db('audio_files')
+      .where({ procedure_id: procedureId, is_active: true })
+      .select('duration_seconds')
+      .first();
+    return row?.duration_seconds ?? null;
+  } catch (err) {
+    console.error('[db] getAudioDurationSeconds:', err.message);
+    return null;
+  }
+}
+
+// Пометить сессию брошенной (ТЗ: started без callback дольше duration+30мин).
+// Атомарно: только если всё ещё 'started'.
+async function abandonSession(id) {
+  try {
+    const updated = await db('procedure_sessions')
+      .where({ id, session_status: 'started' })
+      .update({
+        session_status: 'abandoned',
+        is_counted_as_completed: false,
+        exit_reason: 'timeout',
+      });
+    return updated > 0;
+  } catch (err) {
+    console.error('[db] abandonSession:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   getProcedureByType,
   getProcedureById,
@@ -110,4 +154,7 @@ module.exports = {
   interruptSession,
   getStartedSessionForUser,
   hasCompletedSessionForProcedure,
+  getAllStartedSessions,
+  getAudioDurationSeconds,
+  abandonSession,
 };
