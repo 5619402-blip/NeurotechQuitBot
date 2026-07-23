@@ -17,7 +17,7 @@ const INTRO_VIDEO_PATH = path.join(__dirname, '../../../media/intro_neurotech_qu
 
 const INTRO_VIDEO_CAPTION = 'Когда будете готовы, переходите к короткой диагностике.';
 // Клиент с доступом уже прошёл диагностику — нейтральная подпись без призыва к ней
-const INTRO_VIDEO_CAPTION_CLIENT = 'Короткое объяснение того, как работает NeuroTech Quit.';
+const INTRO_VIDEO_CAPTION_CLIENT = 'Краткое объяснение, как работает NeuroTech Quit.';
 
 function buildIntroVideoKeyboard(isClient) {
   const rows = [
