@@ -17,8 +17,12 @@ function buildEmptyKeyboard(isClient) {
 // Технические значения (имена файлов) в подписи не показываем
 function looksLikeFileName(s) {
   if (!s) return true;
-  return /\.(mp4|mov|avi|mkv|m4v|webm|jpg|jpeg|png)$/i.test(s) ||
-         /^(IMG|VID|FILE|VIDEO|MOV)[_\-\d]/i.test(s.trim());
+  const t = s.trim();
+  // Слова-пустышки из базы тоже не показываем — вместо них текст владельца
+  const placeholders = ['видеоотзыв', 'видео-отзыв', 'отзыв', 'video', 'review', 'отзывы'];
+  if (placeholders.includes(t.toLowerCase())) return true;
+  return /\.(mp4|mov|avi|mkv|m4v|webm|jpg|jpeg|png)$/i.test(t) ||
+         /^(IMG|VID|FILE|VIDEO|MOV)[_\-\d]/i.test(t);
 }
 
 function buildReviewText(r, index, total) {
