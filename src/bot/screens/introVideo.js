@@ -16,6 +16,8 @@ const INTRO_VIDEO_TEXT =
 const INTRO_VIDEO_PATH = path.join(__dirname, '../../../media/intro_neurotech_quit_h264.mp4');
 
 const INTRO_VIDEO_CAPTION = 'Когда будете готовы, переходите к короткой диагностике.';
+// Клиент с доступом уже прошёл диагностику — нейтральная подпись без призыва к ней
+const INTRO_VIDEO_CAPTION_CLIENT = 'Короткое объяснение того, как работает NeuroTech Quit.';
 
 function buildIntroVideoKeyboard(isClient) {
   const rows = [
@@ -60,7 +62,7 @@ async function showIntroVideoWatch(ctx) {
     const msg = await ctx.replyWithVideo(
       videoSource,
       {
-        caption: INTRO_VIDEO_CAPTION,
+        caption: isClient ? INTRO_VIDEO_CAPTION_CLIENT : INTRO_VIDEO_CAPTION,
         reply_markup: {
           inline_keyboard: buildAfterWatchInlineKeyboard(isClient),
         },
