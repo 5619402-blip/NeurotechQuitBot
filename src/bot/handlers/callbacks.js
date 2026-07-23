@@ -1060,28 +1060,6 @@ module.exports = (bot) => {
     await showPostQ5(ctx, sessionId);
   });
 
-  bot.action(/^post_q:3:/, async (ctx) => {
-    await ctx.answerCbQuery();
-    const parts = ctx.callbackQuery.data.split(':');
-    const value = parts[2];
-    const sessionId = parseInt(parts[3], 10);
-    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    if (!user?.id) return showMyAccess(ctx, user);
-    await upsertPostProcedureAnswer(user.id, sessionId, 'q3', value);
-    await showPostQ4(ctx, sessionId);
-  });
-
-  bot.action(/^post_q:4:/, async (ctx) => {
-    await ctx.answerCbQuery();
-    const parts = ctx.callbackQuery.data.split(':');
-    const value = parts[2];
-    const sessionId = parseInt(parts[3], 10);
-    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    if (!user?.id) return showMyAccess(ctx, user);
-    await upsertPostProcedureAnswer(user.id, sessionId, 'q4', value);
-    await showPostQ5(ctx, sessionId);
-  });
-
   bot.action(/^post_q:5:/, async (ctx) => {
     await ctx.answerCbQuery();
     const parts = ctx.callbackQuery.data.split(':');
@@ -1090,17 +1068,6 @@ module.exports = (bot) => {
     const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
     if (!user?.id) return showMyAccess(ctx, user);
     await upsertPostProcedureAnswer(user.id, sessionId, 'q5', value);
-    await showPostQComplete(ctx, sessionId);
-  });
-
-  bot.action(/^post_q:6:/, async (ctx) => {
-    await ctx.answerCbQuery();
-    const parts = ctx.callbackQuery.data.split(':');
-    const value = parts[2];
-    const sessionId = parseInt(parts[3], 10);
-    const user = await getUserByTelegramId(ctx.from.id).catch(() => null);
-    if (!user?.id) return showMyAccess(ctx, user);
-    await upsertPostProcedureAnswer(user.id, sessionId, 'q6', value);
     await showPostQComplete(ctx, sessionId);
   });
 

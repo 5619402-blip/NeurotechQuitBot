@@ -1,14 +1,5 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
-// TEMP DIAGNOSTIC — удалить после проверки env на Bothost
-console.log('[ENV KEYS]', Object.keys(process.env).filter(k =>
-  !k.includes('TOKEN') &&
-  !k.includes('KEY') &&
-  !k.includes('SECRET') &&
-  !k.includes('PASSWORD')
-).sort());
-// END TEMP DIAGNOSTIC
-
 const { bot } = require('./bot/bot');
 const config = require('./config');
 const { startCron } = require('./cron');
@@ -23,6 +14,11 @@ async function main() {
   bot.launch()
     .then(() => console.log('[startup] bot.launch() ok'))
     .catch(err => console.error('[startup] bot.launch() error:', err.message));
+
+  // Команды в меню Telegram (кнопка «/» у клиента)
+  bot.telegram.setMyCommands([
+    { command: 'start', description: 'Перезапустить бота' },
+  ]).catch(err => console.error('[startup] setMyCommands:', err.message));
 
   if (config.cronEnabled) {
     console.log('[startup] cronEnabled=true, starting cron');

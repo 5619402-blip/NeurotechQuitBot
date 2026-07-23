@@ -14,11 +14,19 @@ function buildEmptyKeyboard(isClient) {
   return Markup.inlineKeyboard(rows);
 }
 
+// Технические значения (имена файлов) в подписи не показываем
+function looksLikeFileName(s) {
+  if (!s) return true;
+  return /\.(mp4|mov|avi|mkv|m4v|webm|jpg|jpeg|png)$/i.test(s) ||
+         /^(IMG|VID|FILE|VIDEO|MOV)[_\-\d]/i.test(s.trim());
+}
+
 function buildReviewText(r, index, total) {
   const parts = [];
-  if (r.client_name) parts.push(r.client_name);
-  if (r.description) parts.push(r.description);
-  if (r.source) parts.push(`Источник: ${r.source}`);
+  if (r.client_name && !looksLikeFileName(r.client_name)) parts.push(r.client_name);
+  if (r.description && !looksLikeFileName(r.description)) parts.push(r.description);
+  if (!parts.length) parts.push('Отзыв о прохождении протокола NeuroTech Quit');
+  if (r.source && !looksLikeFileName(r.source)) parts.push(`Источник: ${r.source}`);
   parts.push(`${index + 1} / ${total}`);
   return parts.join('\n');
 }
