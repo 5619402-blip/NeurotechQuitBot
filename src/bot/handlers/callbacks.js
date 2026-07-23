@@ -141,6 +141,11 @@ module.exports = (bot) => {
   bot.action('intro_video:back', async (ctx) => {
     await ctx.answerCbQuery();
     try { await ctx.deleteMessage(); } catch {}
+    // Клиент с доступом → Главное меню, новичок → приветствие
+    const ivUser = await getUserByTelegramId(ctx.from.id).catch(() => null);
+    if (ivUser?.access_type === 'single_procedure' || ivUser?.access_type === 'full_access') {
+      return showMainMenu(ctx);
+    }
     await showWelcome(ctx);
   });
 
